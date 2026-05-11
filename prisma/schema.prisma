@@ -1,0 +1,39 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model Photo {
+  id          String   @id @default(cuid())
+  url         String
+  title       String
+  location    String?
+  category    String   // Landscape, Wildlife, Lifestyle, Daily
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model User {
+  id       String @id @default(cuid())
+  email    String @unique
+  password String // Em um app real, use salt+hash
+}
+
+model Post {
+  id        String   @id @default(cuid())
+  title     String
+  excerpt   String
+  content   String
+  image     String?
+  date      DateTime @default(now())
+  published Boolean  @default(true)
+}
+
+model SiteContent {
+  key   String @id
+  value String
+}
