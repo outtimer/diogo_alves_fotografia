@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter, Playfair_Display } from "next/font/google";
 import Sidebar from "@/components/Sidebar";
 import PageTransition from "@/components/PageTransition";
+import TrackVisit from "@/components/TrackVisit";
 import "./globals.css";
 import { getSiteContent } from "./admin/actions";
 
@@ -31,6 +32,7 @@ export default async function RootLayout({
   return (
     <html lang="pt-BR">
       <body className={`${inter.variable} ${playfair.variable} antialiased`}>
+        <TrackVisit />
         <Sidebar content={content} />
         <main>
           <PageTransition>

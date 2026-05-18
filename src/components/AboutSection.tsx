@@ -8,11 +8,11 @@ interface AboutSectionProps {
 
 export default function AboutSection({ content }: AboutSectionProps) {
   return (
-    <section className="py-24 px-6 bg-white border-b border-zinc-100">
-      <div className="max-w-5xl mx-auto">
-        <div className="flex flex-col md:flex-row gap-12 items-center text-center md:text-left">
+    <section className="py-24 px-6 bg-white border-b border-zinc-100 lg:py-32 xl:py-48">
+      <div className="max-w-5xl 2xl:max-w-7xl mx-auto">
+        <div className="flex flex-col md:flex-row gap-12 lg:gap-24 items-center text-center md:text-left">
           {/* Smaller, more intimate photo */}
-          <div className="relative w-48 h-48 md:w-64 md:h-64 flex-shrink-0 overflow-hidden rounded-full grayscale hover:grayscale-0 transition-all duration-1000 group">
+          <div className="relative w-48 h-48 md:w-64 md:h-64 lg:w-80 lg:h-80 flex-shrink-0 overflow-hidden rounded-full grayscale hover:grayscale-0 transition-all duration-1000 group">
             <Image
               src={content["about_photo_url"] || "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=800"}
               alt="Diogo Alves"
@@ -27,10 +27,10 @@ export default function AboutSection({ content }: AboutSectionProps) {
             <span className="text-[10px] uppercase tracking-[0.5em] text-zinc-400 font-bold mb-4 block">
               {content["about_greeting"] || "Olá, eu sou o Diogo"}
             </span>
-            <h2 className="font-display text-3xl md:text-5xl text-zinc-950 italic mb-6 leading-tight">
+            <h2 className="font-display text-3xl md:text-5xl lg:text-6xl text-zinc-950 italic mb-6 leading-tight">
               {content["about_title_normal"] || "Um curioso por natureza,"} <span className="text-zinc-400 font-normal">{content["about_title_styled"] || "apaixonado por café"}</span> e silêncios produtivos.
             </h2>
-            <div className="text-sm text-zinc-500 mb-8 max-w-xl leading-relaxed mx-auto md:mx-0">
+            <div className="text-sm lg:text-base text-zinc-500 mb-8 max-w-xl lg:max-w-2xl leading-relaxed mx-auto md:mx-0">
               <p>
                 {content["about_bio"] || "Paulistano de alma, encontro paz em caminhadas matinais e na luz que banha as ruas antes da cidade acordar. Sempre com um livro ou uma câmera por perto, busco a beleza no ordinário e nas histórias que as pessoas esquecem de contar."}
               </p>

@@ -5,6 +5,8 @@ import { LayoutGrid } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 
+import { incrementView } from "@/app/admin/actions";
+
 interface Photo {
   id: string;
   url: string;
@@ -19,8 +21,8 @@ interface FeaturedGridProps {
 
 export default function FeaturedGrid({ photos, title }: FeaturedGridProps) {
   return (
-    <section className="px-6 py-32 max-w-7xl mx-auto flex flex-col items-center">
-      <div className="max-w-5xl w-full text-center">
+    <section className="px-6 py-32 max-w-7xl 2xl:max-w-[1600px] 3xl:max-w-[2000px] mx-auto flex flex-col items-center">
+      <div className="max-w-5xl 2xl:max-w-7xl 3xl:max-w-[1800px] w-full text-center">
         {/* Section Heading */}
         <div className="flex flex-col items-center mb-16">
           <span className="text-[10px] uppercase tracking-[0.5em] text-zinc-400 font-bold mb-4 block">Visual Storytelling</span>
@@ -40,9 +42,9 @@ export default function FeaturedGrid({ photos, title }: FeaturedGridProps) {
             "A fotografia é a interrupção da mente por um instante de luz."
           </motion.p>
 
-        {/* Gallery Grid (3x2) */}
+        {/* Gallery Grid (3x2 ou 4x[n]) */}
         {photos.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-8">
             {photos.map((photo, index) => (
               <motion.div
                 key={photo.id}
@@ -50,7 +52,8 @@ export default function FeaturedGrid({ photos, title }: FeaturedGridProps) {
                 whileInView={{ opacity: 1, scale: 1 }}
                 transition={{ duration: 0.6, delay: index * 0.1 }}
                 viewport={{ once: true }}
-                className="aspect-square bg-zinc-100 overflow-hidden shadow-sm relative group"
+                onClick={() => incrementView("photo", photo.id)}
+                className="aspect-square bg-zinc-100 overflow-hidden shadow-sm relative group cursor-pointer"
               >
                 <Image 
                   src={photo.url} 

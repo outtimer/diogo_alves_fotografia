@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Menu, X, Instagram, Twitter, Mail, LayoutGrid, User, ShieldCheck, Home, BookOpen } from "lucide-react";
+import { Menu, X, Instagram, Twitter, Mail, LayoutGrid, User, ShieldCheck, Home, BookOpen, Facebook, Palette, Image as ImageIcon, Aperture, Linkedin, Pin, Camera, Globe } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import Logo from "./Logo";
@@ -98,15 +98,59 @@ export default function Sidebar({ content = {} }: { content?: Record<string, str
 
         {/* Footer Sidebar */}
         <div className="mt-auto pt-8 border-t border-zinc-50">
-          <div className="flex space-x-6 mb-8 text-zinc-400">
-            <a href={content["social_instagram"] || "#"} className="hover:text-zinc-950 transition-colors" target="_blank" rel="noopener noreferrer">
-              <Instagram size={18} />
-            </a>
-            <a href={content["social_twitter"] || "#"} className="hover:text-zinc-950 transition-colors" target="_blank" rel="noopener noreferrer">
-              <Twitter size={18} />
-            </a>
-            <a href={`mailto:${content["contact_email"] || "contato@diogoalves.com"}`} className="hover:text-zinc-950 transition-colors">
-              <Mail size={18} />
+          <div className="flex flex-wrap gap-4 mb-8 text-zinc-400">
+            {content["social_instagram"] && (
+              <a href={content["social_instagram"]} className="hover:text-zinc-950 transition-colors" target="_blank" rel="noopener noreferrer" title="Instagram">
+                <Instagram size={16} />
+              </a>
+            )}
+            {content["social_twitter"] && (
+              <a href={content["social_twitter"]} className="hover:text-zinc-950 transition-colors" target="_blank" rel="noopener noreferrer" title="X (Twitter)">
+                <Twitter size={16} />
+              </a>
+            )}
+            {content["social_facebook"] && (
+              <a href={content["social_facebook"]} className="hover:text-zinc-950 transition-colors" target="_blank" rel="noopener noreferrer" title="Facebook">
+                <Facebook size={16} />
+              </a>
+            )}
+            {content["social_behance"] && (
+              <a href={content["social_behance"]} className="hover:text-zinc-950 transition-colors" target="_blank" rel="noopener noreferrer" title="Behance">
+                <Palette size={16} />
+              </a>
+            )}
+            {content["social_flickr"] && (
+              <a href={content["social_flickr"]} className="hover:text-zinc-950 transition-colors" target="_blank" rel="noopener noreferrer" title="Flickr">
+                <ImageIcon size={16} />
+              </a>
+            )}
+            {content["social_500px"] && (
+              <a href={content["social_500px"]} className="hover:text-zinc-950 transition-colors" target="_blank" rel="noopener noreferrer" title="500px">
+                <Aperture size={16} />
+              </a>
+            )}
+            {content["social_linkedin"] && (
+              <a href={content["social_linkedin"]} className="hover:text-zinc-950 transition-colors" target="_blank" rel="noopener noreferrer" title="LinkedIn">
+                <Linkedin size={16} />
+              </a>
+            )}
+            {content["social_pinterest"] && (
+              <a href={content["social_pinterest"]} className="hover:text-zinc-950 transition-colors" target="_blank" rel="noopener noreferrer" title="Pinterest">
+                <Pin size={16} />
+              </a>
+            )}
+            {content["social_unsplash"] && (
+              <a href={content["social_unsplash"]} className="hover:text-zinc-950 transition-colors" target="_blank" rel="noopener noreferrer" title="Unsplash">
+                <Camera size={16} />
+              </a>
+            )}
+            {content["social_vero"] && (
+              <a href={content["social_vero"]} className="hover:text-zinc-950 transition-colors" target="_blank" rel="noopener noreferrer" title="Vero">
+                <Globe size={16} />
+              </a>
+            )}
+            <a href={`mailto:${content["contact_email"] || "contato@diogoalves.com"}`} className="hover:text-zinc-950 transition-colors" title="E-mail">
+              <Mail size={16} />
             </a>
           </div>
           <Link 
@@ -117,7 +161,7 @@ export default function Sidebar({ content = {} }: { content?: Record<string, str
             <span>Admin</span>
           </Link>
           <p className="text-[9px] uppercase tracking-widest opacity-30">
-            {content["footer_copyright"] || "© 2024 Aura Portfolio"}
+            © {new Date().getFullYear()} {content["footer_copyright"] || "Aura Portfolio"}
           </p>
         </div>
       </motion.aside>

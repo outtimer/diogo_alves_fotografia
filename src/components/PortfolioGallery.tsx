@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { MapPin, X, ArrowRight } from "lucide-react";
+import { incrementView } from "@/app/admin/actions";
 
 interface Photo {
   id: string;
@@ -15,6 +16,11 @@ interface Photo {
 export default function PortfolioGallery({ initialPhotos }: { initialPhotos: Photo[] }) {
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null);
+
+  const handleSelectPhoto = (photo: Photo) => {
+    setSelectedPhoto(photo);
+    incrementView("photo", photo.id);
+  };
 
   const categories = ["All", ...new Set(initialPhotos.map(p => p.category))];
 
@@ -48,7 +54,7 @@ export default function PortfolioGallery({ initialPhotos }: { initialPhotos: Pho
 
       <motion.div 
         layout
-        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12"
+        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 3xl:grid-cols-5 gap-8 md:gap-12"
       >
         <AnimatePresence mode="popLayout">
           {filteredPhotos.map((photo) => (
@@ -60,7 +66,7 @@ export default function PortfolioGallery({ initialPhotos }: { initialPhotos: Pho
               exit={{ opacity: 0, scale: 0.9 }}
               transition={{ duration: 0.5 }}
               className="group relative aspect-[4/5] bg-zinc-100 overflow-hidden cursor-pointer border border-zinc-100"
-              onClick={() => setSelectedPhoto(photo)}
+              onClick={() => handleSelectPhoto(photo)}
             >
               <img 
                 src={photo.url} 
@@ -106,7 +112,7 @@ export default function PortfolioGallery({ initialPhotos }: { initialPhotos: Pho
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
               transition={{ type: "spring", damping: 25, stiffness: 200 }}
-              className="relative max-w-6xl w-full h-full flex flex-col items-center justify-center pointer-events-none"
+              className="relative max-w-6xl 2xl:max-w-7xl 3xl:max-w-[1800px] w-full h-full flex flex-col items-center justify-center pointer-events-none"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="relative group pointer-events-auto">

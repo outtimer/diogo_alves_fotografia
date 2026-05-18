@@ -8,11 +8,17 @@ interface BlogSectionProps {
 }
 
 export default async function BlogSection({ title }: BlogSectionProps) {
-  const posts = await prisma.post.findMany({
-    where: { published: true },
-    orderBy: { date: 'desc' },
-    take: 3
-  });
+  let posts: any[] = [];
+  try {
+    posts = await prisma.post.findMany({
+      where: { published: true },
+      orderBy: { date: 'desc' },
+      take: 3
+    });
+  } catch (error) {
+    console.warn("Post table missing or DB not initialized:", error);
+    return null;
+  }
 
   if (posts.length === 0) return null;
 

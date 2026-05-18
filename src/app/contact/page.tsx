@@ -56,10 +56,37 @@ export default async function ContactPage() {
 
             <div className="pt-8 border-t border-zinc-100">
                <p className="text-[10px] uppercase tracking-widest mb-6 opacity-40 font-bold">Redes Sociais</p>
-               <div className="flex space-x-8">
-                  <a href="#" className="text-xs uppercase tracking-widest text-zinc-950 font-bold hover:underline underline-offset-8 decoration-1">Instagram</a>
-                  <a href="#" className="text-xs uppercase tracking-widest text-zinc-950 font-bold hover:underline underline-offset-8 decoration-1">Twitter</a>
-                  <a href="#" className="text-xs uppercase tracking-widest text-zinc-950 font-bold hover:underline underline-offset-8 decoration-1">Behance</a>
+               <div className="flex flex-wrap gap-x-8 gap-y-4">
+                  {content["social_instagram"] && (
+                    <a href={content["social_instagram"]} target="_blank" rel="noopener noreferrer" className="text-xs uppercase tracking-widest text-zinc-950 font-bold hover:underline underline-offset-8 decoration-1">Instagram</a>
+                  )}
+                  {content["social_twitter"] && (
+                    <a href={content["social_twitter"]} target="_blank" rel="noopener noreferrer" className="text-xs uppercase tracking-widest text-zinc-950 font-bold hover:underline underline-offset-8 decoration-1">Twitter</a>
+                  )}
+                  {content["social_facebook"] && (
+                    <a href={content["social_facebook"]} target="_blank" rel="noopener noreferrer" className="text-xs uppercase tracking-widest text-zinc-950 font-bold hover:underline underline-offset-8 decoration-1">Facebook</a>
+                  )}
+                  {content["social_behance"] && (
+                    <a href={content["social_behance"]} target="_blank" rel="noopener noreferrer" className="text-xs uppercase tracking-widest text-zinc-950 font-bold hover:underline underline-offset-8 decoration-1">Behance</a>
+                  )}
+                  {content["social_flickr"] && (
+                    <a href={content["social_flickr"]} target="_blank" rel="noopener noreferrer" className="text-xs uppercase tracking-widest text-zinc-950 font-bold hover:underline underline-offset-8 decoration-1">Flickr</a>
+                  )}
+                  {content["social_500px"] && (
+                    <a href={content["social_500px"]} target="_blank" rel="noopener noreferrer" className="text-xs uppercase tracking-widest text-zinc-950 font-bold hover:underline underline-offset-8 decoration-1">500px</a>
+                  )}
+                  {content["social_linkedin"] && (
+                    <a href={content["social_linkedin"]} target="_blank" rel="noopener noreferrer" className="text-xs uppercase tracking-widest text-zinc-950 font-bold hover:underline underline-offset-8 decoration-1">LinkedIn</a>
+                  )}
+                  {content["social_pinterest"] && (
+                    <a href={content["social_pinterest"]} target="_blank" rel="noopener noreferrer" className="text-xs uppercase tracking-widest text-zinc-950 font-bold hover:underline underline-offset-8 decoration-1">Pinterest</a>
+                  )}
+                  {content["social_unsplash"] && (
+                    <a href={content["social_unsplash"]} target="_blank" rel="noopener noreferrer" className="text-xs uppercase tracking-widest text-zinc-950 font-bold hover:underline underline-offset-8 decoration-1">Unsplash</a>
+                  )}
+                  {content["social_vero"] && (
+                    <a href={content["social_vero"]} target="_blank" rel="noopener noreferrer" className="text-xs uppercase tracking-widest text-zinc-950 font-bold hover:underline underline-offset-8 decoration-1">Vero</a>
+                  )}
                </div>
             </div>
           </div>

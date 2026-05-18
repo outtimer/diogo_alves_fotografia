@@ -35,7 +35,7 @@ export default function Hero({ content }: HeroProps) {
           transition={{ duration: 1, delay: 0.2 }}
           className="mb-12 flex flex-col items-center justify-center space-y-8"
         >
-           <h1 className="font-display text-6xl md:text-8xl text-zinc-950 italic tracking-tighter flex flex-col md:flex-row items-center justify-center gap-6">
+           <h1 className="font-display text-6xl md:text-8xl xl:text-9xl text-zinc-950 italic tracking-tighter flex flex-col md:flex-row items-center justify-center gap-6">
              <Logo className="w-16 h-16 md:w-24 md:h-24 text-zinc-950" />
              <span className="flex items-center">
                {content["home_hero_title_1"] || "Diogo"} <span className="text-zinc-400 ml-4">{content["home_hero_title_2"] || "Alves"}</span>
@@ -58,7 +58,7 @@ export default function Hero({ content }: HeroProps) {
           {content["home_hero_subtitle"] || "Fotógrafo de Paisagens & Vida"}
         </motion.span>
         
-        <h2 className="font-display text-5xl md:text-8xl text-zinc-950 italic max-w-5xl leading-[1.05] tracking-tight">
+        <h2 className="font-display text-5xl md:text-8xl xl:text-9xl text-zinc-950 italic max-w-5xl xl:max-w-7xl leading-[1.05] tracking-tight">
           {content["home_hero_main_text"] || "Capturando a essência do cotidiano em luz e cor."}
         </h2>
       </motion.div>

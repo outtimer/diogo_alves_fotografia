@@ -1,16 +1,23 @@
-import { getPhotos, getPosts, getSiteContent, isAuthenticated, logout } from "./actions";
+import { getPhotos, getPosts, getSiteContent, isAuthenticated, logout, getAnalytics, getTopPhotos, getTopPosts } from "./actions";
 import { LogOut } from "lucide-react";
 import AdminDashboard from "@/components/AdminDashboard";
 import { redirect } from "next/navigation";
+
+export const dynamic = 'force-dynamic';
 
 export default async function AdminPage() {
   if (!(await isAuthenticated())) {
     redirect("/login");
   }
 
-  const photos = await getPhotos();
-  const posts = await getPosts();
-  const content = await getSiteContent();
+  const [photos, posts, content, analytics, topPhotos, topPosts] = await Promise.all([
+    getPhotos(),
+    getPosts(),
+    getSiteContent(),
+    getAnalytics(),
+    getTopPhotos(),
+    getTopPosts()
+  ]);
 
   return (
     <div className="min-h-screen bg-[#fbfbf8] p-6 md:p-12 font-sans pt-32">
@@ -27,7 +34,14 @@ export default async function AdminPage() {
           </form>
         </header>
 
-        <AdminDashboard initialPhotos={photos} initialPosts={posts} initialContent={content} />
+        <AdminDashboard 
+          initialPhotos={photos} 
+          initialPosts={posts} 
+          initialContent={content}
+          analytics={analytics}
+          topPhotos={topPhotos}
+          topPosts={topPosts}
+        />
       </div>
     </div>
   );

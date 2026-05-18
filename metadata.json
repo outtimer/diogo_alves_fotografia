@@ -2,5 +2,5 @@
   "name": "Diogo Alves Fotografia",
   "description": "Um portfólio minimalista focado em paisagens, vida selvagem e lifestyle cotidiano.",
   "requestFramePermissions": [],
-  "majorCapabilities": []
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

@@ -7,6 +7,37 @@ import { redirect } from "next/navigation";
 
 const SESSION_COOKIE = "aura_admin_session";
 
+import { getCloudinary } from "@/lib/cloudinary";
+
+export async function uploadImage(formData: FormData) {
+  if (!(await isAuthenticated())) throw new Error("Não autorizado");
+  
+  const file = formData.get("file") as File;
+  if (!file) throw new Error("Nenhum arquivo enviado");
+
+  const cloudinary = getCloudinary();
+  if (!cloudinary) {
+    throw new Error("Cloudinary não configurado. Adicione as chaves no painel de segredos.");
+  }
+
+  const bytes = await file.arrayBuffer();
+  const buffer = Buffer.from(bytes);
+
+  return new Promise<{ url: string }>((resolve, reject) => {
+    cloudinary.uploader.upload_stream(
+      { resource_type: "auto", folder: "portfolio" },
+      (error, result) => {
+        if (error) {
+          console.error("Erro no Cloudinary:", error);
+          reject(error);
+        } else {
+          resolve({ url: result!.secure_url });
+        }
+      }
+    ).end(buffer);
+  });
+}
+
 export async function login(formData: FormData) {
   const password = formData.get("password") as string;
 
@@ -16,7 +47,8 @@ export async function login(formData: FormData) {
     (await cookies()).set(SESSION_COOKIE, "true", {
       httpOnly: true,
       path: "/",
-      sameSite: "lax",
+      sameSite: "none",
+      secure: true,
       maxAge: 60 * 60 * 24, // 24 horas
     });
     redirect("/admin");
@@ -109,11 +141,16 @@ export async function deletePost(id: string) {
 }
 
 export async function getSiteContent() {
-  const content = await prisma.siteContent.findMany();
-  return content.reduce((acc, curr) => {
-    acc[curr.key] = curr.value;
-    return acc;
-  }, {} as Record<string, string>);
+  try {
+    const content = await prisma.siteContent.findMany();
+    return content.reduce((acc: Record<string, string>, curr: { key: string, value: string }) => {
+      acc[curr.key] = curr.value;
+      return acc;
+    }, {} as Record<string, string>);
+  } catch (error) {
+    console.warn("Database not ready or SiteContent table missing. Returning empty content.");
+    return {} as Record<string, string>;
+  }
 }
 
 export async function updateSiteContent(formData: FormData) {
@@ -135,4 +172,64 @@ export async function updateSiteContent(formData: FormData) {
   revalidatePath("/about");
   revalidatePath("/contact");
   revalidatePath("/admin");
+}
+
+export async function getAnalytics() {
+  if (!(await isAuthenticated())) throw new Error("Não autorizado");
+  
+  // Get last 30 days of visits
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  
+  return await prisma.analytics.findMany({
+    where: {
+      date: {
+        gte: thirtyDaysAgo
+      }
+    },
+    orderBy: { date: "asc" }
+  });
+}
+
+export async function getTopPhotos(limit: number = 5) {
+  if (!(await isAuthenticated())) throw new Error("Não autorizado");
+  return await prisma.photo.findMany({
+    orderBy: { views: "desc" },
+    take: limit
+  });
+}
+
+export async function getTopPosts(limit: number = 5) {
+  if (!(await isAuthenticated())) throw new Error("Não autorizado");
+  return await prisma.post.findMany({
+    orderBy: { views: "desc" },
+    take: limit
+  });
+}
+
+export async function incrementView(type: "photo" | "post" | "visit", id?: string) {
+  try {
+    if (type === "photo" && id) {
+      await prisma.photo.update({
+        where: { id },
+        data: { views: { increment: 1 } }
+      });
+    } else if (type === "post" && id) {
+      await prisma.post.update({
+        where: { id },
+        data: { views: { increment: 1 } }
+      });
+    } else if (type === "visit") {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      await prisma.analytics.upsert({
+        where: { date: today },
+        update: { visits: { increment: 1 } },
+        create: { date: today, visits: 1 }
+      });
+    }
+  } catch (error) {
+    console.error(`Erro ao incrementar views para ${type}:`, error);
+  }
 }

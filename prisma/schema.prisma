@@ -1,5 +1,6 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
 }
 
 datasource db {
@@ -13,6 +14,7 @@ model Photo {
   title       String
   location    String?
   category    String   // Landscape, Wildlife, Lifestyle, Daily
+  views       Int      @default(0)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
@@ -31,9 +33,16 @@ model Post {
   image     String?
   date      DateTime @default(now())
   published Boolean  @default(true)
+  views     Int      @default(0)
 }
 
 model SiteContent {
   key   String @id
   value String
+}
+
+model Analytics {
+  id        String   @id @default(cuid())
+  date      DateTime @unique @default(now())
+  visits    Int      @default(0)
 }
