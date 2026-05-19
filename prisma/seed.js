@@ -1,5 +1,19 @@
 const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+const { createClient } = require('@libsql/client');
+const { PrismaLibSQL } = require('@prisma/adapter-libsql');
+
+const url = process.env.DATABASE_URL;
+const authToken = process.env.TURSO_AUTH_TOKEN;
+
+let prisma;
+
+if (url && url.startsWith('libsql://')) {
+  const libsql = createClient({ url, authToken: authToken || "" });
+  const adapter = new PrismaLibSQL(libsql);
+  prisma = new PrismaClient({ adapter });
+} else {
+  prisma = new PrismaClient();
+}
 
 async function main() {
   console.log('Limpando banco de dados...');
