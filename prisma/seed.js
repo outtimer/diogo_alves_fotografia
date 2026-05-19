@@ -16,9 +16,22 @@ if (url && url.startsWith('libsql://')) {
 }
 
 async function main() {
+  const bcrypt = require('bcryptjs');
+
   console.log('Limpando banco de dados...');
+  await prisma.user.deleteMany();
   await prisma.post.deleteMany();
   await prisma.photo.deleteMany();
+
+  const hashedPassword = await bcrypt.hash('admin123', 10);
+  await prisma.user.create({
+    data: {
+      name: 'Administrador Root',
+      email: 'admin@aura.com',
+      password: hashedPassword,
+      role: 'ADMIN'
+    }
+  });
 
   const photos = [
     {

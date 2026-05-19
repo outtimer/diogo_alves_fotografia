@@ -21,9 +21,13 @@ model Photo {
 }
 
 model User {
-  id       String @id @default(cuid())
-  email    String @unique
-  password String // Em um app real, use salt+hash
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  password  String 
+  role      String   @default("EDITOR") // ADMIN ou EDITOR
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Post {

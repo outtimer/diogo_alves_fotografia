@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import bcrypt from "bcryptjs";
 
 const SESSION_COOKIE = "aura_admin_session";
 
@@ -38,22 +39,52 @@ export async function uploadImage(formData: FormData) {
   });
 }
 
+// Auxiliar para pegar o usuário logado
+export async function getLoggedInUser() {
+  const session = (await cookies()).get(SESSION_COOKIE);
+  if (!session?.value) return null;
+  
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: session.value },
+      select: { id: true, name: true, email: true, role: true }
+    });
+    return user;
+  } catch (error) {
+    return null;
+  }
+}
+
 export async function login(formData: FormData) {
+  const email = formData.get("email") as string;
   const password = formData.get("password") as string;
 
-  // Em um app real, verificaríamos no banco com hash. 
-  // Para este protótipo, usaremos uma senha simples.
-  if (password === "admin123") {
-    (await cookies()).set(SESSION_COOKIE, "true", {
+  if (!email || !password) return { error: "Preencha todos os campos" };
+
+  try {
+    const user = await prisma.user.findUnique({
+      where: { email }
+    });
+
+    if (!user) return { error: "Credenciais inválidas" };
+
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) return { error: "Credenciais inválidas" };
+
+    // Login com cache de 24 horas (configurável)
+    (await cookies()).set(SESSION_COOKIE, user.id, {
       httpOnly: true,
       path: "/",
-      sameSite: "none",
-      secure: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
       maxAge: 60 * 60 * 24, // 24 horas
     });
+
     redirect("/admin");
-  } else {
-    return { error: "Senha incorreta" };
+  } catch (error: any) {
+    if (error.digest?.includes("NEXT_REDIRECT")) throw error;
+    console.error("Erro no login:", error);
+    return { error: "Erro ao realizar login" };
   }
 }
 
@@ -63,7 +94,13 @@ export async function logout() {
 }
 
 export async function isAuthenticated() {
-  return (await cookies()).has(SESSION_COOKIE);
+  const user = await getLoggedInUser();
+  return !!user;
+}
+
+export async function isAdmin() {
+  const user = await getLoggedInUser();
+  return user?.role === "ADMIN";
 }
 
 export async function addPhoto(formData: FormData) {
@@ -257,4 +294,44 @@ export async function incrementView(type: "photo" | "post" | "visit", id?: strin
   } catch (error) {
     console.error(`Erro ao incrementar views para ${type}:`, error);
   }
+}
+
+// ---- AÇÕES DE USUÁRIOS ----
+
+export async function getUsers() {
+  if (!(await isAdmin())) throw new Error("Acesso restrito");
+  return await prisma.user.findMany({
+    select: { id: true, name: true, email: true, role: true, createdAt: true },
+    orderBy: { createdAt: "desc" }
+  });
+}
+
+export async function addUser(formData: FormData) {
+  if (!(await isAdmin())) throw new Error("Acesso restrito");
+  
+  const name = formData.get("name") as string;
+  const email = formData.get("email") as string;
+  const password = formData.get("password") as string;
+  const role = formData.get("role") as string;
+
+  if (!name || !email || !password) throw new Error("Campos obrigatórios faltando");
+
+  const hashedPassword = await bcrypt.hash(password, 10);
+
+  await prisma.user.create({
+    data: { name, email, password: hashedPassword, role }
+  });
+
+  revalidatePath("/admin");
+}
+
+export async function deleteUser(id: string) {
+  if (!(await isAdmin())) throw new Error("Acesso restrito");
+  
+  // Não permitir deletar a si mesmo por segurança
+  const currentUser = await getLoggedInUser();
+  if (currentUser?.id === id) throw new Error("Você não pode deletar sua própria conta");
+
+  await prisma.user.delete({ where: { id } });
+  revalidatePath("/admin");
 }

@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { addPhoto, deletePhoto, addPost, deletePost, updateSiteContent, uploadImage } from "@/app/admin/actions";
+import { addPhoto, deletePhoto, addPost, deletePost, updateSiteContent, uploadImage, addUser, deleteUser } from "@/app/admin/actions";
 import { motion, AnimatePresence } from "framer-motion";
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell } from "recharts";
-import { Trash2, Plus, ImageIcon, FileText, MapPin, Tag, Calendar, AlignLeft, Home, User, Mail, Save, LayoutDashboard, Settings, TrendingUp, Eye, ArrowUpRight, Upload, Loader2, Link as LinkIcon } from "lucide-react";
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { Trash2, Plus, ImageIcon, FileText, MapPin, Tag, Calendar, AlignLeft, Home, User, Mail, Save, LayoutDashboard, Settings, TrendingUp, Eye, ArrowUpRight, Upload, Loader2, Link as LinkIcon, Users, Shield, ShieldAlert, ShieldCheck } from "lucide-react";
 
 interface Photo {
   id: string;
@@ -25,6 +25,14 @@ interface Post {
   views: number;
 }
 
+interface UserData {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  createdAt: Date;
+}
+
 interface AnalyticsData {
   date: Date;
   visits: number;
@@ -37,6 +45,8 @@ interface AdminDashboardProps {
   analytics: AnalyticsData[];
   topPhotos: Photo[];
   topPosts: Post[];
+  users: UserData[];
+  currentUser: { id: string, name: string, email: string, role: string };
 }
 
 export default function AdminDashboard({ 
@@ -45,10 +55,14 @@ export default function AdminDashboard({
   initialContent,
   analytics = [],
   topPhotos = [],
-  topPosts = []
+  topPosts = [],
+  users = [],
+  currentUser
 }: AdminDashboardProps) {
   const [isUploading, setIsUploading] = useState(false);
   const [activeTab, setActiveTab] = useState("dashboard");
+
+  const isAdmin = currentUser.role === "ADMIN";
 
   const tabs = [
     { id: "dashboard", label: "Métricas", icon: LayoutDashboard },
@@ -58,6 +72,7 @@ export default function AdminDashboard({
     { id: "about", label: "Sobre", icon: User },
     { id: "contact", label: "Contato", icon: Mail },
     { id: "footer", label: "Rodapé", icon: Settings },
+    ...(isAdmin ? [{ id: "users", label: "Usuários", icon: Users }] : []),
   ];
 
   // Format analytics for charts
@@ -671,8 +686,6 @@ export default function AdminDashboard({
           { label: "URL Fundo Atmosférico", key: "home_hero_bg_url", type: "url" },
           { label: "Título Curadoria", key: "home_gallery_title", type: "text" },
           { label: "Título Crônicas", key: "home_blog_title", type: "text" },
-          { label: "CTA Rodapé", key: "footer_cta_title", type: "text" },
-          { label: "Bio Rodapé", key: "footer_cta_desc", type: "textarea" },
         ])}
 
         {activeTab === "about" && renderContentForm("Sobre Mim", [
@@ -697,6 +710,10 @@ export default function AdminDashboard({
         ])}
 
         {activeTab === "footer" && renderContentForm("Rodapé & Conexões", [
+          { label: "Título CTA Footer", key: "footer_cta_title", type: "text" },
+          { label: "Descrição CTA Footer", key: "footer_cta_desc", type: "textarea" },
+          { label: "Assinatura Copyright", key: "footer_copyright", type: "text" },
+          { label: "Tagline Geográfica", key: "footer_tagline", type: "text" },
           { label: "Instagram Link", key: "social_instagram", type: "url" },
           { label: "Twitter / X Link", key: "social_twitter", type: "url" },
           { label: "Facebook Link", key: "social_facebook", type: "url" },
@@ -707,9 +724,104 @@ export default function AdminDashboard({
           { label: "Pinterest Link", key: "social_pinterest", type: "url" },
           { label: "Vero Link", key: "social_vero", type: "url" },
           { label: "Unsplash Link", key: "social_unsplash", type: "url" },
-          { label: "Assinatura Copyright", key: "footer_copyright", type: "text" },
-          { label: "Tagline Geográfica", key: "footer_tagline", type: "text" },
         ])}
+
+        {activeTab === "users" && isAdmin && (
+          <motion.div 
+            key="users"
+            initial={{ opacity: 0, scale: 0.98 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.98 }}
+            className="grid grid-cols-1 lg:grid-cols-12 gap-10"
+          >
+            {/* User Form */}
+            <div className="lg:col-span-4">
+              <div className="bg-white rounded-3xl border border-zinc-100 p-8 shadow-xl shadow-zinc-200/50 sticky top-32">
+                <h2 className="text-lg font-display italic mb-8 flex items-center text-zinc-950">
+                  <User size={20} className="mr-3 text-zinc-400" /> Novo Usuário
+                </h2>
+                <form action={addUser} className="space-y-6">
+                  <div className="space-y-2">
+                    <label className="block text-[10px] uppercase tracking-widest text-zinc-400 font-bold ml-1">Nome Completo</label>
+                    <input name="name" type="text" required className="w-full bg-zinc-50 border border-zinc-100 rounded-2xl p-4 text-sm focus:outline-none focus:ring-4 focus:ring-zinc-950/5 focus:border-zinc-950/20 transition-all" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="block text-[10px] uppercase tracking-widest text-zinc-400 font-bold ml-1">E-mail</label>
+                    <input name="email" type="email" required className="w-full bg-zinc-50 border border-zinc-100 rounded-2xl p-4 text-sm focus:outline-none focus:ring-4 focus:ring-zinc-950/5 focus:border-zinc-950/20 transition-all" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="block text-[10px] uppercase tracking-widest text-zinc-400 font-bold ml-1">Senha</label>
+                    <input name="password" type="password" required className="w-full bg-zinc-50 border border-zinc-100 rounded-2xl p-4 text-sm focus:outline-none focus:ring-4 focus:ring-zinc-950/5 focus:border-zinc-950/20 transition-all" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="block text-[10px] uppercase tracking-widest text-zinc-400 font-bold ml-1">Cargo / Nível</label>
+                    <select name="role" required className="w-full bg-zinc-50 border border-zinc-100 rounded-2xl p-4 text-sm focus:outline-none focus:ring-4 focus:ring-zinc-950/5 focus:border-zinc-950/20 transition-all appearance-none">
+                      <option value="EDITOR">Editor (Conteúdo)</option>
+                      <option value="ADMIN">Administrador (Total)</option>
+                    </select>
+                  </div>
+                  <button type="submit" className="w-full bg-zinc-950 text-white rounded-2xl py-4 hover:bg-zinc-800 transition-all font-bold flex items-center justify-center">
+                    <Plus size={16} className="mr-3" />
+                    <span className="text-[10px] uppercase tracking-[0.2em]">Criar Usuário</span>
+                  </button>
+                </form>
+              </div>
+            </div>
+
+            {/* Users List */}
+            <div className="lg:col-span-8">
+              <div className="bg-white rounded-3xl border border-zinc-100 shadow-xl shadow-zinc-200/50 overflow-hidden">
+                <div className="px-8 py-6 bg-zinc-50/50 border-b border-zinc-100 flex justify-between items-center">
+                  <span className="text-[10px] uppercase tracking-widest text-zinc-400 font-bold">Equipe Aura</span>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left">
+                    <tbody className="divide-y divide-zinc-50">
+                      {users.map((user) => (
+                        <tr key={user.id} className="hover:bg-zinc-50/30 transition-colors group">
+                          <td className="p-6">
+                            <div className="flex items-center gap-4">
+                              <div className={`w-10 h-10 rounded-full flex items-center justify-center font-display italic text-lg ${user.role === "ADMIN" ? "bg-zinc-950 text-white" : "bg-zinc-100 text-zinc-400"}`}>
+                                {user.name.charAt(0)}
+                              </div>
+                              <div>
+                                <h3 className="text-sm font-bold text-zinc-950">{user.name}</h3>
+                                <p className="text-[10px] text-zinc-400 lowercase tracking-wider">{user.email}</p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="p-6">
+                            <span className={`inline-flex items-center px-3 py-1 rounded-full text-[8px] uppercase tracking-widest font-bold ${user.role === "ADMIN" ? "bg-zinc-950 text-white" : "bg-zinc-100 text-zinc-500"}`}>
+                              {user.role === "ADMIN" ? (
+                                <><Shield size={10} className="mr-2" /> Admin</>
+                              ) : (
+                                <><ShieldCheck size={10} className="mr-2" /> Editor</>
+                              )}
+                            </span>
+                          </td>
+                          <td className="p-6 text-right">
+                            {user.id !== currentUser.id && (
+                              <button 
+                                onClick={async () => {
+                                  if (confirm("Remover este usuário?")) {
+                                    await deleteUser(user.id);
+                                  }
+                                }}
+                                className="w-10 h-10 rounded-xl flex items-center justify-center text-zinc-200 hover:text-red-500 transition-all"
+                              >
+                                <Trash2 size={18} />
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
       </AnimatePresence>
     </div>
   );

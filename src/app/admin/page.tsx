@@ -1,23 +1,25 @@
-import { getPhotos, getPosts, getSiteContent, isAuthenticated, logout, getAnalytics, getTopPhotos, getTopPosts } from "./actions";
-import { LogOut } from "lucide-react";
+import { getPhotos, getPosts, getSiteContent, logout, getAnalytics, getTopPhotos, getTopPosts, getLoggedInUser, getUsers } from "./actions";
+import { LogOut, Users } from "lucide-react";
 import AdminDashboard from "@/components/AdminDashboard";
 import { redirect } from "next/navigation";
 
 export const dynamic = 'force-dynamic';
 
 export default async function AdminPage() {
-  if (!(await isAuthenticated())) {
+  const currentUser = await getLoggedInUser();
+  if (!currentUser) {
     redirect("/login");
   }
 
   try {
-    const [photos, posts, content, analytics, topPhotos, topPosts] = await Promise.all([
+    const [photos, posts, content, analytics, topPhotos, topPosts, users] = await Promise.all([
       getPhotos(),
       getPosts(),
       getSiteContent(),
       getAnalytics(),
       getTopPhotos(),
-      getTopPosts()
+      getTopPosts(),
+      currentUser.role === "ADMIN" ? getUsers() : Promise.resolve([])
     ]);
 
     return (
@@ -28,11 +30,17 @@ export default async function AdminPage() {
               <h1 className="font-display text-4xl md:text-6xl text-zinc-950 italic leading-tight">Painel de Controle</h1>
               <p className="text-[10px] uppercase tracking-[0.4em] mt-4 opacity-40 font-medium">Gestão de Conteúdo • Aura</p>
             </div>
-            <form action={logout}>
-              <button className="flex items-center text-[10px] uppercase tracking-widest opacity-40 hover:opacity-100 transition-opacity pb-2">
-                Sair <LogOut size={12} className="ml-2" />
-              </button>
-            </form>
+            <div className="flex items-center gap-6">
+              <div className="text-right hidden md:block">
+                <p className="text-[10px] uppercase tracking-widest font-bold text-zinc-950">{currentUser.name}</p>
+                <p className="text-[8px] uppercase tracking-[0.3em] text-zinc-400 font-bold">{currentUser.role === "ADMIN" ? "Administrador" : "Editor"}</p>
+              </div>
+              <form action={logout}>
+                <button className="flex items-center text-[10px] uppercase tracking-widest opacity-40 hover:opacity-100 transition-opacity pb-2">
+                  Sair <LogOut size={12} className="ml-2" />
+                </button>
+              </form>
+            </div>
           </header>
 
           <AdminDashboard 
@@ -42,6 +50,8 @@ export default async function AdminPage() {
             analytics={analytics}
             topPhotos={topPhotos}
             topPosts={topPosts}
+            users={users}
+            currentUser={currentUser}
           />
         </div>
       </div>

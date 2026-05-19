@@ -35,6 +35,19 @@ export default function LoginPage() {
           <form action={handleSubmit} className="space-y-8">
             <div>
               <label className="block text-[10px] uppercase tracking-[0.4em] opacity-40 mb-4 font-bold flex items-center">
+                E-mail
+              </label>
+              <input
+                name="email"
+                type="email"
+                required
+                placeholder="seu@email.com"
+                className="w-full bg-zinc-50 border border-zinc-100 p-4 text-sm focus:outline-none focus:border-zinc-900 transition-colors"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[10px] uppercase tracking-[0.4em] opacity-40 mb-4 font-bold flex items-center">
                 <Lock size={12} className="mr-2" /> Senha de Acesso
               </label>
               <input
