@@ -75,8 +75,8 @@ export async function login(formData: FormData) {
     (await cookies()).set(SESSION_COOKIE, user.id, {
       httpOnly: true,
       path: "/",
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
+      sameSite: "none",
+      secure: true,
       maxAge: 60 * 60 * 24, // 24 horas
     });
 
