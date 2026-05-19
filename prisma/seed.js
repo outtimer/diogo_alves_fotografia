@@ -86,6 +86,33 @@ async function main() {
     await prisma.post.create({ data: post });
   }
 
+  console.log('Populando configurações iniciais...');
+  
+  await prisma.homeConfig.upsert({
+    where: { id: "default" },
+    update: {},
+    create: {
+      id: "default",
+      title1: "Aura",
+      title2: "Photography",
+      subtitle: "Capturing the essence of the wild and the ordinary.",
+      galleryTitle: "Trabalhos Selecionados",
+      blogTitle: "Crônicas & Jornadas"
+    }
+  });
+
+  await prisma.footerConfig.upsert({
+    where: { id: "default" },
+    update: {},
+    create: {
+      id: "default",
+      ctaTitle: "Interessado em apoiar uma expedição?",
+      ctaDesc: "Estou sempre em busca de parceiros para patrocinar novas jornadas.",
+      copyright: "Diogo Alves. Todos os direitos reservados.",
+      tagline: "SÃO PAULO | TOKYO | ZURICH"
+    }
+  });
+
   console.log('Seed completo!');
 }
 

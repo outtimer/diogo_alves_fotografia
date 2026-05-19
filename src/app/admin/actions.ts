@@ -246,7 +246,7 @@ export async function getSiteContent() {
 
     return content;
   } catch (error) {
-    console.warn("Database not ready or tables missing. Returning empty content.");
+    console.error("Erro ao buscar conteúdo do site:", error);
     return {} as Record<string, string>;
   }
 }

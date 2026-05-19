@@ -5,34 +5,31 @@ import path from 'path';
 
 const globalForPrisma = global as unknown as { prisma: PrismaClient };
 
-const url = process.env.TURSO_DATABASE_URL || (process.env.DATABASE_URL?.startsWith('libsql://') ? process.env.DATABASE_URL : null);
+const url = process.env.TURSO_DATABASE_URL || process.env.DATABASE_URL;
 const authToken = process.env.TURSO_AUTH_TOKEN;
 
 let prismaInstance: PrismaClient;
 
-if (url && url.startsWith('libsql://')) {
+const isLibsql = url && (
+  url.startsWith('libsql://') || 
+  url.startsWith('wss://') || 
+  url.startsWith('ws://') || 
+  url.includes('turso.io')
+);
+
+if (isLibsql) {
   console.log('Initializing Prisma with LibSQL adapter (Turso)');
   try {
-    const libsql = createClient({ url, authToken: authToken || "" });
+    const libsql = createClient({ url: url!, authToken: authToken || "" });
     const adapter = new PrismaLibSQL(libsql);
     prismaInstance = new PrismaClient({ adapter } as any);
   } catch (err) {
     console.error('Failed to initialize LibSQL adapter:', err);
-    // Fallback to standard client if adapter fails - though it might still fail if URL is wrong
     prismaInstance = new PrismaClient();
   }
 } else {
-  console.log('Initializing Prisma with local SQLite');
-  // Garantir que estamos usando o arquivo absoluto no diretório prisma
-  const dbPath = path.join(process.cwd(), 'prisma', 'dev.db');
-  
-  prismaInstance = new PrismaClient({
-    datasources: {
-      db: {
-        url: `file:${dbPath}`,
-      },
-    },
-  } as any);
+  console.log('Initializing Prisma with standard driver (SQLite local)');
+  prismaInstance = new PrismaClient();
 }
 
 export const prisma = globalForPrisma.prisma || prismaInstance;

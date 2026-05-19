@@ -5,16 +5,21 @@ import fs from 'fs';
 import path from 'path';
 
 async function main() {
-  const url = process.env.DATABASE_URL;
+  const url = process.env.TURSO_DATABASE_URL || process.env.DATABASE_URL;
   const authToken = process.env.TURSO_AUTH_TOKEN;
 
   if (!url) {
-    console.error('❌ Erro: DATABASE_URL não encontrada no ambiente.');
+    console.error('❌ Erro: DATABASE_URL ou TURSO_DATABASE_URL não encontrada no ambiente.');
     process.exit(1);
   }
 
-  if (!url.startsWith('libsql://')) {
-    console.log('ℹ️ DATABASE_URL não é Turso (libsql). Rodando prisma db push padrão...');
+  const isLibsql = url.startsWith('libsql://') || 
+                   url.startsWith('wss://') || 
+                   url.startsWith('ws://') || 
+                   url.includes('turso.io');
+
+  if (!isLibsql) {
+    console.log('ℹ️ O banco não parece ser Turso/LibSQL. Rodando prisma db push padrão...');
     try {
       execSync('npx prisma db push', { stdio: 'inherit' });
       process.exit(0);
