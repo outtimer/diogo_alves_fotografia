@@ -18,7 +18,7 @@ const playfair = Playfair_Display({
 });
 
 export const metadata: Metadata = {
-  title: "Aura Portfolio | Diogo Alves",
+  title: "Diogo Alves Fotografia",
   description: "Capturando a essência do cotidiano em luz e cor.",
 };
 

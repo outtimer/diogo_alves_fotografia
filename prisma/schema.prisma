@@ -14,6 +14,8 @@ model Photo {
   url         String
   title       String
   location    String?
+  lat         Float?
+  lng         Float?
   category    String   // Landscape, Wildlife, Lifestyle, Daily
   views       Int      @default(0)
   createdAt   DateTime @default(now())
@@ -70,26 +72,32 @@ model HomeConfig {
   title2       String?
   subtitle     String?
   heroBgUrl    String?
+  mainText     String?
   galleryTitle String?
   blogTitle    String?
 }
 
 model AboutConfig {
-  id        String  @id @default("default")
-  title     String?
-  subtitle  String?
-  bio1      String?
-  bio2      String?
-  imageUrl  String?
-  signature String?
+  id           String  @id @default("default")
+  greeting     String?
+  titleNormal  String?
+  titleStyled  String?
+  bio          String?
+  years        String?
+  equipment    String?
+  address      String?
+  linkText     String?
+  photoUrl     String?
 }
 
 model ContactConfig {
-  id       String  @id @default("default")
-  title    String?
-  subtitle String?
-  address  String?
-  email    String?
+  id          String  @id @default("default")
+  titleNormal String?
+  titleStyled String?
+  subtitle    String?
+  infoTitle   String?
+  infoDesc    String?
+  email       String?
 }
 
 model Analytics {

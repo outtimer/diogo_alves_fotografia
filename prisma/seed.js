@@ -95,9 +95,40 @@ async function main() {
       id: "default",
       title1: "Aura",
       title2: "Photography",
-      subtitle: "Capturing the essence of the wild and the ordinary.",
+      subtitle: "Fotógrafo de Paisagens & Vida",
+      mainText: "Capturando a essência do cotidiano em luz e cor.",
       galleryTitle: "Trabalhos Selecionados",
       blogTitle: "Crônicas & Jornadas"
+    }
+  });
+
+  await prisma.aboutConfig.upsert({
+    where: { id: "default" },
+    update: {},
+    create: {
+      id: "default",
+      greeting: "Olá, eu sou o Diogo",
+      titleNormal: "Um curioso por natureza,",
+      titleStyled: "apaixonado por café",
+      bio: "Paulistano de alma, encontro paz em caminhadas matinais e na luz que banha as ruas antes da cidade acordar. Sempre com um livro ou uma câmera por perto, busco a beleza no ordinário e nas histórias que as pessoas esquecem de contar.",
+      years: "10+",
+      equipment: "Leica M11 & Sony A7R V\n35mm Fixed Lens focus",
+      address: "São Paulo, Brasil\nDisponível para projetos globais",
+      linkText: "Minha história completa"
+    }
+  });
+
+  await prisma.contactConfig.upsert({
+    where: { id: "default" },
+    update: {},
+    create: {
+      id: "default",
+      titleNormal: "Vamos",
+      titleStyled: "conversar",
+      subtitle: "Aberto a patrocínios para expedições e projetos autorais",
+      infoTitle: "Informações Diretas",
+      infoDesc: "Se você tem interesse em patrocinar uma expedição, adquirir obras originais ou propor um projeto fotográfico, sinta-se à vontade para entrar em contato.",
+      email: "contato@diogoalves.com"
     }
   });
 

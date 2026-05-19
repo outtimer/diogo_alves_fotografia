@@ -52,6 +52,7 @@ export default async function AdminPage() {
             topPosts={topPosts}
             users={users}
             currentUser={currentUser}
+            googleMapsApiKey=""
           />
         </div>
       </div>

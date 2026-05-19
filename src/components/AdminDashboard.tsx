@@ -4,13 +4,16 @@ import { useState } from "react";
 import { addPhoto, deletePhoto, addPost, deletePost, updateSiteContent, uploadImage, addUser, deleteUser } from "@/app/admin/actions";
 import { motion, AnimatePresence } from "framer-motion";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { Trash2, Plus, ImageIcon, FileText, MapPin, Tag, Calendar, AlignLeft, Home, User, Mail, Save, LayoutDashboard, Settings, TrendingUp, Eye, ArrowUpRight, Upload, Loader2, Link as LinkIcon, Users, Shield, ShieldAlert, ShieldCheck } from "lucide-react";
+import { Trash2, Plus, ImageIcon, FileText, MapPin, Tag, Calendar, AlignLeft, Home, User, Mail, Save, LayoutDashboard, Settings, TrendingUp, Eye, ArrowUpRight, Upload, Loader2, Link as LinkIcon, Users, Shield, ShieldAlert, ShieldCheck, Globe, Search } from "lucide-react";
+import CityAutocomplete from "./CityAutocomplete";
 
 interface Photo {
   id: string;
   url: string;
   title: string;
   location: string | null;
+  lat: number | null;
+  lng: number | null;
   category: string;
   views: number;
 }
@@ -47,6 +50,7 @@ interface AdminDashboardProps {
   topPosts: Post[];
   users: UserData[];
   currentUser: { id: string, name: string, email: string, role: string };
+  googleMapsApiKey: string;
 }
 
 export default function AdminDashboard({ 
@@ -57,7 +61,8 @@ export default function AdminDashboard({
   topPhotos = [],
   topPosts = [],
   users = [],
-  currentUser
+  currentUser,
+  googleMapsApiKey // Keeping for compatibility in props but not using
 }: AdminDashboardProps) {
   const [isUploading, setIsUploading] = useState(false);
   const [activeTab, setActiveTab] = useState("dashboard");
@@ -420,7 +425,7 @@ export default function AdminDashboard({
                 </h2>
                 <form action={addPhoto} className="space-y-6">
                   <div className="space-y-2">
-                    <label className="block text-[10px] uppercase tracking-widest text-zinc-400 font-bold ml-1">Imagem</label>
+                    <label className="block text-[10px] uppercase tracking-widest text-zinc-400 font-bold ml-1">Imagem (CloudCanary)</label>
                     <div className="space-y-4">
                       <div className="relative group">
                         <input 
@@ -470,11 +475,23 @@ export default function AdminDashboard({
                     <label className="block text-[10px] uppercase tracking-widest text-zinc-400 font-bold ml-1">Título</label>
                     <input name="title" type="text" required className="w-full bg-zinc-50 border border-zinc-100 rounded-2xl p-4 text-sm focus:outline-none focus:ring-4 focus:ring-zinc-950/5 focus:border-zinc-950/20 transition-all" />
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 gap-6">
                     <div className="space-y-2">
-                      <label className="block text-[10px] uppercase tracking-widest text-zinc-400 font-bold ml-1">Local</label>
-                      <input name="location" type="text" className="w-full bg-zinc-50 border border-zinc-100 rounded-2xl p-4 text-sm focus:outline-none focus:ring-4 focus:ring-zinc-950/5 focus:border-zinc-950/20 transition-all" />
+                      <label className="block text-[10px] uppercase tracking-widest text-zinc-400 font-bold ml-1">Localização (Cidade)</label>
+                      <CityAutocomplete 
+                        name="location"
+                        onCitySelect={(city) => {
+                          // Set hidden inputs
+                          const latInput = document.querySelector('input[name="lat"]') as HTMLInputElement;
+                          const lngInput = document.querySelector('input[name="lng"]') as HTMLInputElement;
+                          if (latInput) latInput.value = city?.lat?.toString() || "";
+                          if (lngInput) lngInput.value = city?.lng?.toString() || "";
+                        }} 
+                      />
+                      <input type="hidden" name="lat" />
+                      <input type="hidden" name="lng" />
                     </div>
+
                     <div className="space-y-2">
                       <label className="block text-[10px] uppercase tracking-widest text-zinc-400 font-bold ml-1">Categoria</label>
                       <select name="category" required className="w-full bg-zinc-50 border border-zinc-100 rounded-2xl p-4 text-sm focus:outline-none focus:ring-4 focus:ring-zinc-950/5 focus:border-zinc-950/20 transition-all appearance-none">

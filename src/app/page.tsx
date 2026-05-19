@@ -38,7 +38,10 @@ export default async function Home() {
       <AboutSection content={content} />
 
       {/* Featured Section */}
-      <FeaturedGrid photos={photos} title={content["home_gallery_title"] || "Galeria em Foco"} />
+      <FeaturedGrid 
+        photos={photos} 
+        title={content["home_gallery_title"] || "Galeria em Foco"} 
+      />
 
       {/* Blog Section */}
       <BlogSection title={content["home_blog_title"] || "Últimas Histórias"} />

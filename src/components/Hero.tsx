@@ -35,8 +35,8 @@ export default function Hero({ content }: HeroProps) {
           transition={{ duration: 1, delay: 0.2 }}
           className="mb-12 flex flex-col items-center justify-center space-y-8"
         >
-           <h1 className="font-display text-6xl md:text-8xl xl:text-9xl text-zinc-950 italic tracking-tighter flex flex-col md:flex-row items-center justify-center gap-6">
-             <Logo className="w-16 h-16 md:w-24 md:h-24 text-zinc-950" />
+           <h1 className="font-display text-5xl md:text-8xl lg:text-9xl 3xl:text-[12rem] text-zinc-950 italic tracking-tighter flex flex-col md:flex-row items-center justify-center gap-6">
+             <Logo className="w-16 h-16 md:w-24 md:h-24 3xl:w-32 3xl:h-32 text-zinc-950" />
              <span className="flex items-center">
                {content["home_hero_title_1"] || "Diogo"} <span className="text-zinc-400 ml-4">{content["home_hero_title_2"] || "Alves"}</span>
              </span>
@@ -45,7 +45,7 @@ export default function Hero({ content }: HeroProps) {
             initial={{ width: 0 }}
             animate={{ width: "40%" }}
             transition={{ duration: 1, delay: 0.8 }}
-            className="h-[1px] bg-zinc-200 mt-6 mx-auto"
+            className="h-[1px] bg-zinc-200 mt-6 mx-auto max-w-[500px]"
            ></motion.div>
         </motion.div>
 
@@ -53,12 +53,12 @@ export default function Hero({ content }: HeroProps) {
           initial={{ opacity: 0 }}
           animate={{ opacity: 0.8 }}
           transition={{ delay: 1 }}
-          className="text-[10px] uppercase tracking-[0.6em] mb-6 block text-zinc-600 font-bold"
+          className="text-[10px] 3xl:text-xs uppercase tracking-[0.6em] mb-6 block text-zinc-600 font-bold"
         >
           {content["home_hero_subtitle"] || "Fotógrafo de Paisagens & Vida"}
         </motion.span>
         
-        <h2 className="font-display text-5xl md:text-8xl xl:text-9xl text-zinc-950 italic max-w-5xl xl:max-w-7xl leading-[1.05] tracking-tight">
+        <h2 className="font-display text-4xl md:text-7xl lg:text-8xl 3xl:text-[10rem] text-zinc-950 italic max-w-5xl lg:max-w-7xl 3xl:max-w-[1800px] leading-[1.05] tracking-tight text-balance">
           {content["home_hero_main_text"] || "Capturando a essência do cotidiano em luz e cor."}
         </h2>
       </motion.div>

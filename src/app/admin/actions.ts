@@ -109,12 +109,14 @@ export async function addPhoto(formData: FormData) {
   const title = formData.get("title") as string;
   const location = formData.get("location") as string;
   const category = formData.get("category") as string;
+  const lat = formData.get("lat") ? parseFloat(formData.get("lat") as string) : null;
+  const lng = formData.get("lng") ? parseFloat(formData.get("lng") as string) : null;
 
   if (!url || !title || !category) return;
 
   try {
     await prisma.photo.create({
-      data: { url, title, location, category },
+      data: { url, title, location, category, lat, lng },
     });
     revalidatePath("/");
     revalidatePath("/admin");
@@ -224,23 +226,29 @@ export async function getSiteContent() {
       content["home_title_2"] = homeConfig.title2 || "";
       content["home_subtitle"] = homeConfig.subtitle || "";
       content["home_hero_bg_url"] = homeConfig.heroBgUrl || "";
+      content["home_hero_main_text"] = homeConfig.mainText || "";
       content["home_gallery_title"] = homeConfig.galleryTitle || "";
       content["home_blog_title"] = homeConfig.blogTitle || "";
     }
 
     if (aboutConfig) {
-      content["about_title"] = aboutConfig.title || "";
-      content["about_subtitle"] = aboutConfig.subtitle || "";
-      content["about_bio_1"] = aboutConfig.bio1 || "";
-      content["about_bio_2"] = aboutConfig.bio2 || "";
-      content["about_image_url"] = aboutConfig.imageUrl || "";
-      content["about_signature"] = aboutConfig.signature || "";
+      content["about_greeting"] = aboutConfig.greeting || "";
+      content["about_title_normal"] = aboutConfig.titleNormal || "";
+      content["about_title_styled"] = aboutConfig.titleStyled || "";
+      content["about_bio"] = aboutConfig.bio || "";
+      content["about_years"] = aboutConfig.years || "";
+      content["about_equipment"] = aboutConfig.equipment || "";
+      content["about_address"] = aboutConfig.address || "";
+      content["about_link_text"] = aboutConfig.linkText || "";
+      content["about_photo_url"] = aboutConfig.photoUrl || "";
     }
 
     if (contactConfig) {
-      content["contact_title"] = contactConfig.title || "";
+      content["contact_title_normal"] = contactConfig.titleNormal || "";
+      content["contact_title_styled"] = contactConfig.titleStyled || "";
       content["contact_subtitle"] = contactConfig.subtitle || "";
-      content["contact_address"] = contactConfig.address || "";
+      content["contact_info_title"] = contactConfig.infoTitle || "";
+      content["contact_info_desc"] = contactConfig.infoDesc || "";
       content["contact_email"] = contactConfig.email || "";
     }
 
@@ -283,23 +291,29 @@ export async function updateSiteContent(formData: FormData) {
     "home_title_2": "title2",
     "home_subtitle": "subtitle",
     "home_hero_bg_url": "heroBgUrl",
+    "home_hero_main_text": "mainText",
     "home_gallery_title": "galleryTitle",
     "home_blog_title": "blogTitle"
   };
 
   const aboutMap: Record<string, string> = {
-    "about_title": "title",
-    "about_subtitle": "subtitle",
-    "about_bio_1": "bio1",
-    "about_bio_2": "bio2",
-    "about_image_url": "imageUrl",
-    "about_signature": "signature"
+    "about_greeting": "greeting",
+    "about_title_normal": "titleNormal",
+    "about_title_styled": "titleStyled",
+    "about_bio": "bio",
+    "about_years": "years",
+    "about_equipment": "equipment",
+    "about_address": "address",
+    "about_link_text": "linkText",
+    "about_photo_url": "photoUrl"
   };
 
   const contactMap: Record<string, string> = {
-    "contact_title": "title",
+    "contact_title_normal": "titleNormal",
+    "contact_title_styled": "titleStyled",
     "contact_subtitle": "subtitle",
-    "contact_address": "address",
+    "contact_info_title": "infoTitle",
+    "contact_info_desc": "infoDesc",
     "contact_email": "email"
   };
   
