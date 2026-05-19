@@ -11,11 +11,18 @@ const authToken = process.env.TURSO_AUTH_TOKEN;
 let prismaInstance: PrismaClient;
 
 if (url && url.startsWith('libsql://')) {
-  // Se temos a URL mas não o token, e a URL já contém o token (raro) ou estamos em dev sem token
-  const libsql = createClient({ url, authToken: authToken || "" });
-  const adapter = new PrismaLibSQL(libsql);
-  prismaInstance = new PrismaClient({ adapter } as any);
+  console.log('Initializing Prisma with LibSQL adapter (Turso)');
+  try {
+    const libsql = createClient({ url, authToken: authToken || "" });
+    const adapter = new PrismaLibSQL(libsql);
+    prismaInstance = new PrismaClient({ adapter } as any);
+  } catch (err) {
+    console.error('Failed to initialize LibSQL adapter:', err);
+    // Fallback to standard client if adapter fails - though it might still fail if URL is wrong
+    prismaInstance = new PrismaClient();
+  }
 } else {
+  console.log('Initializing Prisma with local SQLite');
   // Garantir que estamos usando o arquivo absoluto no diretório prisma
   const dbPath = path.join(process.cwd(), 'prisma', 'dev.db');
   
@@ -25,7 +32,6 @@ if (url && url.startsWith('libsql://')) {
         url: `file:${dbPath}`,
       },
     },
-    log: ['query'],
   } as any);
 }
 

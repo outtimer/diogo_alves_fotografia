@@ -98,15 +98,25 @@ export async function deletePhoto(id: string) {
 }
 
 export async function getPhotos() {
-  return await prisma.photo.findMany({
-    orderBy: { createdAt: "desc" },
-  });
+  try {
+    return await prisma.photo.findMany({
+      orderBy: { createdAt: "desc" },
+    });
+  } catch (error) {
+    console.error("Error fetching photos:", error);
+    return [];
+  }
 }
 
 export async function getPosts() {
-  return await prisma.post.findMany({
-    orderBy: { date: "desc" },
-  });
+  try {
+    return await prisma.post.findMany({
+      orderBy: { date: "desc" },
+    });
+  } catch (error) {
+    console.error("Error fetching posts:", error);
+    return [];
+  }
 }
 
 export async function addPost(formData: FormData) {
@@ -177,34 +187,49 @@ export async function updateSiteContent(formData: FormData) {
 export async function getAnalytics() {
   if (!(await isAuthenticated())) throw new Error("Não autorizado");
   
-  // Get last 30 days of visits
-  const thirtyDaysAgo = new Date();
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-  
-  return await prisma.analytics.findMany({
-    where: {
-      date: {
-        gte: thirtyDaysAgo
-      }
-    },
-    orderBy: { date: "asc" }
-  });
+  try {
+    // Get last 30 days of visits
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    
+    return await prisma.analytics.findMany({
+      where: {
+        date: {
+          gte: thirtyDaysAgo
+        }
+      },
+      orderBy: { date: "asc" }
+    });
+  } catch (error) {
+    console.error("Error fetching analytics:", error);
+    return [];
+  }
 }
 
 export async function getTopPhotos(limit: number = 5) {
   if (!(await isAuthenticated())) throw new Error("Não autorizado");
-  return await prisma.photo.findMany({
-    orderBy: { views: "desc" },
-    take: limit
-  });
+  try {
+    return await prisma.photo.findMany({
+      orderBy: { views: "desc" },
+      take: limit
+    });
+  } catch (error) {
+    console.error("Error fetching top photos:", error);
+    return [];
+  }
 }
 
 export async function getTopPosts(limit: number = 5) {
   if (!(await isAuthenticated())) throw new Error("Não autorizado");
-  return await prisma.post.findMany({
-    orderBy: { views: "desc" },
-    take: limit
-  });
+  try {
+    return await prisma.post.findMany({
+      orderBy: { views: "desc" },
+      take: limit
+    });
+  } catch (error) {
+    console.error("Error fetching top posts:", error);
+    return [];
+  }
 }
 
 export async function incrementView(type: "photo" | "post" | "visit", id?: string) {
