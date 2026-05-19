@@ -46,6 +46,52 @@ model SiteContent {
   value String
 }
 
+model FooterConfig {
+  id              String  @id @default("default")
+  ctaTitle        String?
+  ctaDesc         String?
+  copyright       String?
+  tagline         String?
+  socialInstagram String?
+  socialTwitter   String?
+  socialFacebook  String?
+  socialBehance   String?
+  socialFlickr    String?
+  social500px     String?
+  socialLinkedin  String?
+  socialPinterest String?
+  socialVero      String?
+  socialUnsplash  String?
+}
+
+model HomeConfig {
+  id           String  @id @default("default")
+  title1       String?
+  title2       String?
+  subtitle     String?
+  heroBgUrl    String?
+  galleryTitle String?
+  blogTitle    String?
+}
+
+model AboutConfig {
+  id        String  @id @default("default")
+  title     String?
+  subtitle  String?
+  bio1      String?
+  bio2      String?
+  imageUrl  String?
+  signature String?
+}
+
+model ContactConfig {
+  id       String  @id @default("default")
+  title    String?
+  subtitle String?
+  address  String?
+  email    String?
+}
+
 model Analytics {
   id        String   @id @default(cuid())
   date      DateTime @unique @default(now())

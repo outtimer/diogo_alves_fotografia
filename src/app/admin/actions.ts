@@ -189,13 +189,64 @@ export async function deletePost(id: string) {
 
 export async function getSiteContent() {
   try {
-    const content = await prisma.siteContent.findMany();
-    return content.reduce((acc: Record<string, string>, curr: { key: string, value: string }) => {
+    const [siteContent, footerConfig, homeConfig, aboutConfig, contactConfig] = await Promise.all([
+      prisma.siteContent.findMany(),
+      prisma.footerConfig.findUnique({ where: { id: "default" } }),
+      prisma.homeConfig.findUnique({ where: { id: "default" } }),
+      prisma.aboutConfig.findUnique({ where: { id: "default" } }),
+      prisma.contactConfig.findUnique({ where: { id: "default" } })
+    ]);
+
+    const content = siteContent.reduce((acc: Record<string, string>, curr: { key: string, value: string }) => {
       acc[curr.key] = curr.value;
       return acc;
     }, {} as Record<string, string>);
+
+    if (footerConfig) {
+      content["footer_cta_title"] = footerConfig.ctaTitle || "";
+      content["footer_cta_desc"] = footerConfig.ctaDesc || "";
+      content["footer_copyright"] = footerConfig.copyright || "";
+      content["footer_tagline"] = footerConfig.tagline || "";
+      content["social_instagram"] = footerConfig.socialInstagram || "";
+      content["social_twitter"] = footerConfig.socialTwitter || "";
+      content["social_facebook"] = footerConfig.socialFacebook || "";
+      content["social_behance"] = footerConfig.socialBehance || "";
+      content["social_flickr"] = footerConfig.socialFlickr || "";
+      content["social_500px"] = footerConfig.social500px || "";
+      content["social_linkedin"] = footerConfig.socialLinkedin || "";
+      content["social_pinterest"] = footerConfig.socialPinterest || "";
+      content["social_vero"] = footerConfig.socialVero || "";
+      content["social_unsplash"] = footerConfig.socialUnsplash || "";
+    }
+
+    if (homeConfig) {
+      content["home_title_1"] = homeConfig.title1 || "";
+      content["home_title_2"] = homeConfig.title2 || "";
+      content["home_subtitle"] = homeConfig.subtitle || "";
+      content["home_hero_bg_url"] = homeConfig.heroBgUrl || "";
+      content["home_gallery_title"] = homeConfig.galleryTitle || "";
+      content["home_blog_title"] = homeConfig.blogTitle || "";
+    }
+
+    if (aboutConfig) {
+      content["about_title"] = aboutConfig.title || "";
+      content["about_subtitle"] = aboutConfig.subtitle || "";
+      content["about_bio_1"] = aboutConfig.bio1 || "";
+      content["about_bio_2"] = aboutConfig.bio2 || "";
+      content["about_image_url"] = aboutConfig.imageUrl || "";
+      content["about_signature"] = aboutConfig.signature || "";
+    }
+
+    if (contactConfig) {
+      content["contact_title"] = contactConfig.title || "";
+      content["contact_subtitle"] = contactConfig.subtitle || "";
+      content["contact_address"] = contactConfig.address || "";
+      content["contact_email"] = contactConfig.email || "";
+    }
+
+    return content;
   } catch (error) {
-    console.warn("Database not ready or SiteContent table missing. Returning empty content.");
+    console.warn("Database not ready or tables missing. Returning empty content.");
     return {} as Record<string, string>;
   }
 }
@@ -204,15 +255,114 @@ export async function updateSiteContent(formData: FormData) {
   if (!(await isAuthenticated())) throw new Error("Não autorizado");
   
   const entries = Array.from(formData.entries());
+  const footerFields: Record<string, string> = {};
+  const homeFields: Record<string, string> = {};
+  const aboutFields: Record<string, string> = {};
+  const contactFields: Record<string, string> = {};
+  const otherFields: Record<string, string> = {};
+
+  const footerMap: Record<string, string> = {
+    "footer_cta_title": "ctaTitle",
+    "footer_cta_desc": "ctaDesc",
+    "footer_copyright": "copyright",
+    "footer_tagline": "tagline",
+    "social_instagram": "socialInstagram",
+    "social_twitter": "socialTwitter",
+    "social_facebook": "socialFacebook",
+    "social_behance": "socialBehance",
+    "social_flickr": "socialFlickr",
+    "social_500px": "social500px",
+    "social_linkedin": "socialLinkedin",
+    "social_pinterest": "socialPinterest",
+    "social_vero": "socialVero",
+    "social_unsplash": "socialUnsplash"
+  };
+
+  const homeMap: Record<string, string> = {
+    "home_title_1": "title1",
+    "home_title_2": "title2",
+    "home_subtitle": "subtitle",
+    "home_hero_bg_url": "heroBgUrl",
+    "home_gallery_title": "galleryTitle",
+    "home_blog_title": "blogTitle"
+  };
+
+  const aboutMap: Record<string, string> = {
+    "about_title": "title",
+    "about_subtitle": "subtitle",
+    "about_bio_1": "bio1",
+    "about_bio_2": "bio2",
+    "about_image_url": "imageUrl",
+    "about_signature": "signature"
+  };
+
+  const contactMap: Record<string, string> = {
+    "contact_title": "title",
+    "contact_subtitle": "subtitle",
+    "contact_address": "address",
+    "contact_email": "email"
+  };
   
   for (const [key, value] of entries) {
     if (typeof value === "string") {
-      await prisma.siteContent.upsert({
-        where: { key },
-        update: { value },
-        create: { key, value },
-      });
+      if (footerMap[key]) {
+        footerFields[footerMap[key]] = value;
+      } else if (homeMap[key]) {
+        homeFields[homeMap[key]] = value;
+      } else if (aboutMap[key]) {
+        aboutFields[aboutMap[key]] = value;
+      } else if (contactMap[key]) {
+        contactFields[contactMap[key]] = value;
+      } else {
+        otherFields[key] = value;
+      }
     }
+  }
+
+  // Update Sections
+  const updatePromises = [];
+
+  if (Object.keys(footerFields).length > 0) {
+    updatePromises.push(prisma.footerConfig.upsert({
+      where: { id: "default" },
+      update: footerFields,
+      create: { id: "default", ...footerFields },
+    }));
+  }
+
+  if (Object.keys(homeFields).length > 0) {
+    updatePromises.push(prisma.homeConfig.upsert({
+      where: { id: "default" },
+      update: homeFields,
+      create: { id: "default", ...homeFields },
+    }));
+  }
+
+  if (Object.keys(aboutFields).length > 0) {
+    updatePromises.push(prisma.aboutConfig.upsert({
+      where: { id: "default" },
+      update: aboutFields,
+      create: { id: "default", ...aboutFields },
+    }));
+  }
+
+  if (Object.keys(contactFields).length > 0) {
+    updatePromises.push(prisma.contactConfig.upsert({
+      where: { id: "default" },
+      update: contactFields,
+      create: { id: "default", ...contactFields },
+    }));
+  }
+
+  await Promise.all(updatePromises);
+
+  // Update remaining SiteContent
+  for (const [key, value] of Object.entries(otherFields)) {
+    await prisma.siteContent.upsert({
+      where: { key },
+      update: { value },
+      create: { key, value },
+    });
   }
   
   revalidatePath("/");
