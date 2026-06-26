@@ -108,15 +108,34 @@ export async function addPhoto(formData: FormData) {
   const url = formData.get("url") as string;
   const title = formData.get("title") as string;
   const location = formData.get("location") as string;
-  const category = formData.get("category") as string;
+  const categoryId = formData.get("category") as string; // Agora recebemos o ID ou o nome
   const lat = formData.get("lat") ? parseFloat(formData.get("lat") as string) : null;
   const lng = formData.get("lng") ? parseFloat(formData.get("lng") as string) : null;
 
-  if (!url || !title || !category) return;
+  if (!url || !title || !categoryId) return;
 
   try {
+    // Tentar encontrar a categoria pelo ID primeiro, se falhar tenta pelo nome
+    // Para simplificar, vamos assumir que o painel envia o nome selecionado
+    const categoryRecord = await prisma.category.findFirst({
+      where: { 
+        OR: [
+          { id: categoryId },
+          { name: categoryId }
+        ]
+      }
+    });
+
     await prisma.photo.create({
-      data: { url, title, location, category, lat, lng },
+      data: { 
+        url, 
+        title, 
+        location, 
+        category: categoryRecord?.name || categoryId, 
+        lat, 
+        lng,
+        categoryId: categoryRecord?.id || null
+      },
     });
     revalidatePath("/");
     revalidatePath("/admin");
@@ -498,4 +517,53 @@ export async function deleteUser(id: string) {
 
   await prisma.user.delete({ where: { id } });
   revalidatePath("/admin");
+}
+
+// ---- ACÕES DE CATEGORIA ----
+
+export async function getCategories() {
+  try {
+    return await prisma.category.findMany({
+      orderBy: { name: "asc" }
+    });
+  } catch (error) {
+    console.error("Erro ao buscar categorias:", error);
+    return [];
+  }
+}
+
+export async function addCategory(formData: FormData) {
+  if (!(await isAuthenticated())) throw new Error("Não autorizado");
+  
+  const name = formData.get("name") as string;
+  if (!name) throw new Error("O nome da categoria é obrigatório");
+
+  try {
+    await prisma.category.create({
+      data: { name }
+    });
+    revalidatePath("/admin");
+    revalidatePath("/gallery");
+    revalidatePath("/");
+  } catch (error: any) {
+    if (error.code === 'P2002') {
+      throw new Error("Já existe uma categoria com este nome");
+    }
+    throw error;
+  }
+}
+
+export async function deleteCategory(id: string) {
+  if (!(await isAuthenticated())) throw new Error("Não autorizado");
+  
+  try {
+    // Verificar se existem fotos vinculadas (opcional, ou podemos apenas desvincular)
+    await prisma.category.delete({ where: { id } });
+    revalidatePath("/admin");
+    revalidatePath("/gallery");
+    revalidatePath("/");
+  } catch (error) {
+    console.error("Erro ao deletar categoria:", error);
+    throw new Error("Erro ao deletar categoria. Verifique se existem fotos vinculadas.");
+  }
 }

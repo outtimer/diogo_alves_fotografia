@@ -15,7 +15,13 @@ interface Photo {
   category: string;
 }
 
-export default function PortfolioGallery({ initialPhotos }: { initialPhotos: Photo[] }) {
+export default function PortfolioGallery({ 
+  initialPhotos,
+  initialCategories = []
+}: { 
+  initialPhotos: Photo[];
+  initialCategories?: { id: string; name: string }[];
+}) {
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null);
 
@@ -24,7 +30,11 @@ export default function PortfolioGallery({ initialPhotos }: { initialPhotos: Pho
     incrementView("photo", photo.id);
   };
 
-  const categories = ["All", ...new Set(initialPhotos.map(p => p.category))];
+  const categories = useMemo(() => {
+    const dbCatNames = initialCategories.map(c => c.name);
+    const photoCatNames = initialPhotos.map(p => p.category);
+    return ["All", ...Array.from(new Set([...dbCatNames, ...photoCatNames]))];
+  }, [initialCategories, initialPhotos]);
 
   const filteredPhotos = useMemo(() => 
     selectedCategory === "All" 

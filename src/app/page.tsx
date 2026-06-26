@@ -44,7 +44,9 @@ export default async function Home() {
       />
 
       {/* Blog Section */}
-      <BlogSection title={content["home_blog_title"] || "Últimas Histórias"} />
+      {content["show_blog"] === "true" && (
+        <BlogSection title={content["home_blog_title"] || "Últimas Histórias"} />
+      )}
 
       {/* Footer */}
       <Footer content={content} />

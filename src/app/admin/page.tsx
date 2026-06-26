@@ -1,4 +1,4 @@
-import { getPhotos, getPosts, getSiteContent, logout, getAnalytics, getTopPhotos, getTopPosts, getLoggedInUser, getUsers } from "./actions";
+import { getPhotos, getPosts, getSiteContent, logout, getAnalytics, getTopPhotos, getTopPosts, getLoggedInUser, getUsers, getCategories } from "./actions";
 import { LogOut, Users } from "lucide-react";
 import AdminDashboard from "@/components/AdminDashboard";
 import { redirect } from "next/navigation";
@@ -12,14 +12,15 @@ export default async function AdminPage() {
   }
 
   try {
-    const [photos, posts, content, analytics, topPhotos, topPosts, users] = await Promise.all([
+    const [photos, posts, content, analytics, topPhotos, topPosts, users, categories] = await Promise.all([
       getPhotos(),
       getPosts(),
       getSiteContent(),
       getAnalytics(),
       getTopPhotos(),
       getTopPosts(),
-      currentUser.role === "ADMIN" ? getUsers() : Promise.resolve([])
+      currentUser.role === "ADMIN" ? getUsers() : Promise.resolve([]),
+      getCategories()
     ]);
 
     return (
@@ -51,6 +52,7 @@ export default async function AdminPage() {
             topPhotos={topPhotos}
             topPosts={topPosts}
             users={users}
+            initialCategories={categories}
             currentUser={currentUser}
             googleMapsApiKey=""
           />

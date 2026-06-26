@@ -6,12 +6,20 @@ export const dynamic = 'force-dynamic';
 
 export default async function GalleryPage() {
   let photos: any[] = [];
+  let categories: any[] = [];
   try {
-    photos = await prisma.photo.findMany({
-      orderBy: { createdAt: "desc" },
-    });
+    const [fetchedPhotos, fetchedCategories] = await Promise.all([
+      prisma.photo.findMany({
+        orderBy: { createdAt: "desc" },
+      }),
+      prisma.category.findMany({
+        orderBy: { name: "asc" },
+      }).catch(() => [])
+    ]);
+    photos = fetchedPhotos;
+    categories = fetchedCategories;
   } catch (error) {
-    console.warn("Photo table missing or DB not initialized:", error);
+    console.warn("Error fetching gallery data:", error);
   }
 
   return (
@@ -29,6 +37,7 @@ export default async function GalleryPage() {
 
         <PortfolioGallery 
           initialPhotos={photos} 
+          initialCategories={categories}
         />
       </div>
     </div>

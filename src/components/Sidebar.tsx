@@ -16,10 +16,11 @@ export default function Sidebar({ content = {} }: { content?: Record<string, str
     setIsOpen(false);
   }, [pathname]);
 
+  const showBlog = content["show_blog"] === "true";
   const navItems = [
     { name: "Início", href: "/", icon: Home },
     { name: "Galeria", href: "/gallery", icon: LayoutGrid },
-    { name: "Blog", href: "/#blog", icon: BookOpen },
+    ...(showBlog ? [{ name: "Blog", href: "/#blog", icon: BookOpen }] : []),
     { name: "Sobre", href: "/about", icon: User },
     { name: "Contato", href: "/contact", icon: Mail },
   ];

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { addPhoto, deletePhoto, addPost, deletePost, updateSiteContent, uploadImage, addUser, deleteUser } from "@/app/admin/actions";
+import { addPhoto, deletePhoto, addPost, deletePost, updateSiteContent, uploadImage, addUser, deleteUser, addCategory, deleteCategory } from "@/app/admin/actions";
 import { motion, AnimatePresence } from "framer-motion";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { Trash2, Plus, ImageIcon, FileText, MapPin, Tag, Calendar, AlignLeft, Home, User, Mail, Save, LayoutDashboard, Settings, TrendingUp, Eye, ArrowUpRight, Upload, Loader2, Link as LinkIcon, Users, Shield, ShieldAlert, ShieldCheck, Globe, Search } from "lucide-react";
@@ -36,6 +36,12 @@ interface UserData {
   createdAt: Date;
 }
 
+interface Category {
+  id: string;
+  name: string;
+  createdAt: Date;
+}
+
 interface AnalyticsData {
   date: Date;
   visits: number;
@@ -49,6 +55,7 @@ interface AdminDashboardProps {
   topPhotos: Photo[];
   topPosts: Post[];
   users: UserData[];
+  initialCategories: Category[];
   currentUser: { id: string, name: string, email: string, role: string };
   googleMapsApiKey: string;
 }
@@ -61,6 +68,7 @@ export default function AdminDashboard({
   topPhotos = [],
   topPosts = [],
   users = [],
+  initialCategories = [],
   currentUser,
   googleMapsApiKey // Keeping for compatibility in props but not using
 }: AdminDashboardProps) {
@@ -404,168 +412,229 @@ export default function AdminDashboard({
                    <h6 className="text-xs font-bold text-zinc-950 uppercase tracking-widest">Ajustes Gerais</h6>
                    <p className="text-[10px] text-zinc-400">Configurações globais</p>
                  </div>
-               </button>
+                </button>
             </div>
           </motion.div>
         )}
 
         {activeTab === "photos" && (
-          <motion.div 
-            key="photos"
-            initial={{ opacity: 0, scale: 0.98 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.98 }}
-            className="grid grid-cols-1 lg:grid-cols-12 gap-10"
-          >
-            {/* Photo Form */}
-            <div className="lg:col-span-4">
-              <div className="bg-white rounded-3xl border border-zinc-100 p-8 shadow-xl shadow-zinc-200/50 sticky top-32">
-                <h2 className="text-lg font-display italic mb-8 flex items-center text-zinc-950">
-                  <Plus size={20} className="mr-3 text-zinc-400" /> Nova Obra
-                </h2>
-                <form action={addPhoto} className="space-y-6">
-                  <div className="space-y-2">
-                    <label className="block text-[10px] uppercase tracking-widest text-zinc-400 font-bold ml-1">Imagem (CloudCanary)</label>
-                    <div className="space-y-4">
-                      <div className="relative group">
-                        <input 
-                          type="file" 
-                          accept="image/*"
-                          onChange={async (e) => {
-                            const file = e.target.files?.[0];
-                            if (!file) return;
-                            
-                            setIsUploading(true);
-                            try {
-                              const formData = new FormData();
-                              formData.append("file", file);
-                              const result = await uploadImage(formData);
-                              // Update the URL input
-                              const urlInput = document.querySelector('input[name="url"]') as HTMLInputElement;
-                              if (urlInput) urlInput.value = result.url;
-                            } catch (error) {
-                              alert("Erro no upload. Verifique suas chaves do Cloudinary.");
-                            } finally {
-                              setIsUploading(false);
-                            }
-                          }}
-                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" 
-                        />
-                        <div className="w-full bg-zinc-50 border-2 border-dashed border-zinc-200 rounded-2xl p-8 flex flex-col items-center justify-center gap-3 transition-all group-hover:border-zinc-950/20 group-hover:bg-zinc-100/50">
-                          {isUploading ? (
-                            <Loader2 size={24} className="text-zinc-400 animate-spin" />
-                          ) : (
-                            <Upload size={24} className="text-zinc-300" />
-                          )}
-                          <p className="text-[10px] uppercase tracking-widest text-zinc-400 font-bold">
-                            {isUploading ? "Enviando..." : "Arraste ou clique para upload"}
-                          </p>
-                        </div>
-                      </div>
-                      
-                      <div className="relative">
-                        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-300">
-                          <LinkIcon size={14} />
-                        </div>
-                        <input name="url" type="url" required placeholder="https://cloudinary.com/..." className="w-full bg-zinc-50 border border-zinc-100 rounded-2xl p-4 pl-12 text-sm focus:outline-none focus:ring-4 focus:ring-zinc-950/5 focus:border-zinc-950/20 transition-all" />
+          <div key="photos" className="space-y-12">
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="grid grid-cols-1 lg:grid-cols-12 gap-10"
+            >
+              {/* Sidebar: Add Category + Add Photo */}
+              <div className="lg:col-span-4 space-y-10">
+                {/* Category Management */}
+                <div className="bg-white rounded-3xl border border-zinc-100 p-8 shadow-xl shadow-zinc-200/50">
+                  <h2 className="text-lg font-display italic mb-8 flex items-center text-zinc-950">
+                    <Tag size={20} className="mr-3 text-zinc-400" /> Categorias
+                  </h2>
+                  <form action={async (formData) => {
+                    try {
+                      await addCategory(formData);
+                    } catch (error: any) {
+                      alert(error.message);
+                    }
+                  }} className="space-y-6">
+                    <div className="space-y-2">
+                      <label className="block text-[10px] uppercase tracking-widest text-zinc-400 font-bold ml-1">Nova Categoria</label>
+                      <div className="relative flex gap-2">
+                        <input name="name" type="text" required placeholder="Ex: Black & White" className="flex-1 bg-zinc-50 border border-zinc-100 rounded-2xl p-4 text-sm focus:outline-none focus:ring-4 focus:ring-zinc-950/5 focus:border-zinc-950/20 transition-all" />
+                        <button type="submit" className="bg-zinc-950 text-white px-6 rounded-2xl hover:bg-zinc-800 transition-all">
+                          <Plus size={16} />
+                        </button>
                       </div>
                     </div>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="block text-[10px] uppercase tracking-widest text-zinc-400 font-bold ml-1">Título</label>
-                    <input name="title" type="text" required className="w-full bg-zinc-50 border border-zinc-100 rounded-2xl p-4 text-sm focus:outline-none focus:ring-4 focus:ring-zinc-950/5 focus:border-zinc-950/20 transition-all" />
-                  </div>
-                  <div className="grid grid-cols-1 gap-6">
-                    <div className="space-y-2">
-                      <label className="block text-[10px] uppercase tracking-widest text-zinc-400 font-bold ml-1">Localização (Cidade)</label>
-                      <CityAutocomplete 
-                        name="location"
-                        onCitySelect={(city) => {
-                          // Set hidden inputs
-                          const latInput = document.querySelector('input[name="lat"]') as HTMLInputElement;
-                          const lngInput = document.querySelector('input[name="lng"]') as HTMLInputElement;
-                          if (latInput) latInput.value = city?.lat?.toString() || "";
-                          if (lngInput) lngInput.value = city?.lng?.toString() || "";
-                        }} 
-                      />
-                      <input type="hidden" name="lat" />
-                      <input type="hidden" name="lng" />
-                    </div>
+                  </form>
 
-                    <div className="space-y-2">
-                      <label className="block text-[10px] uppercase tracking-widest text-zinc-400 font-bold ml-1">Categoria</label>
-                      <select name="category" required className="w-full bg-zinc-50 border border-zinc-100 rounded-2xl p-4 text-sm focus:outline-none focus:ring-4 focus:ring-zinc-950/5 focus:border-zinc-950/20 transition-all appearance-none">
-                        <option value="Landscape">Paisagem</option>
-                        <option value="Urban">Urbano</option>
-                        <option value="Wildlife">Vida Selvagem</option>
-                        <option value="Daily">Cotidiano</option>
-                      </select>
-                    </div>
-                  </div>
-                  <button type="submit" className="w-full bg-zinc-950 text-white rounded-2xl py-4 hover:bg-zinc-800 transition-all font-bold flex items-center justify-center">
-                    <Save size={16} className="mr-3" />
-                    <span className="text-[10px] uppercase tracking-[0.2em]">Adicionar à Galeria</span>
-                  </button>
-                </form>
-              </div>
-            </div>
-
-            {/* Photo List */}
-            <div className="lg:col-span-8">
-              <div className="bg-white rounded-3xl border border-zinc-100 shadow-xl shadow-zinc-200/50 overflow-hidden">
-                <div className="px-8 py-6 bg-zinc-50/50 border-b border-zinc-100 flex justify-between items-center">
-                  <span className="text-[10px] uppercase tracking-widest text-zinc-400 font-bold">Obras Recentes</span>
-                  <div className="flex gap-2">
-                    <div className="w-2 h-2 rounded-full bg-zinc-200" />
-                    <div className="w-2 h-2 rounded-full bg-zinc-200" />
-                    <div className="w-2 h-2 rounded-full bg-zinc-200" />
-                  </div>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left">
-                    <tbody className="divide-y divide-zinc-50">
-                      {initialPhotos.length === 0 ? (
-                        <tr><td className="p-20 text-center text-sm text-zinc-400 italic">O deserto está vazio por aqui... comece a criar.</td></tr>
+                  <div className="mt-8 pt-8 border-t border-zinc-50">
+                    <div className="flex flex-wrap gap-2">
+                      {initialCategories.length === 0 ? (
+                        <p className="text-[10px] text-zinc-400 italic">Nenhuma categoria cadastrada.</p>
                       ) : (
-                        initialPhotos.map((photo) => (
-                          <tr key={photo.id} className="hover:bg-zinc-50/30 transition-colors group">
-                            <td className="p-6 w-32">
-                              <div className="aspect-[4/5] bg-zinc-100 rounded-2xl overflow-hidden relative shadow-md group-hover:scale-[1.05] transition-transform duration-500">
-                                <img src={photo.url} alt="" className="absolute inset-0 w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-700" />
-                              </div>
-                            </td>
-                            <td className="p-6">
-                              <h3 className="text-base font-display italic text-zinc-950 mb-2">{photo.title}</h3>
-                              <div className="flex flex-wrap items-center gap-4 text-[9px] uppercase tracking-widest font-bold">
-                                <span className="flex items-center px-2 py-1 bg-zinc-100 rounded-lg text-zinc-400 group-hover:text-zinc-600 transition-colors">
-                                  <MapPin size={10} className="mr-2" /> {photo.location || "Coordenadas OCULTAS"}
-                                </span>
-                                <span className="flex items-center px-2 py-1 bg-zinc-100 rounded-lg text-zinc-400 group-hover:text-zinc-900 transition-colors">
-                                  <Tag size={10} className="mr-2" /> {photo.category}
-                                </span>
-                              </div>
-                            </td>
-                            <td className="p-6 text-right">
-                              <button 
-                                onClick={async () => {
-                                  if (confirm("Tem certeza que deseja apagar esta obra?")) {
-                                    await deletePhoto(photo.id);
+                        initialCategories.map((cat) => (
+                          <div key={cat.id} className="group flex items-center gap-2 px-3 py-1.5 bg-zinc-50 border border-zinc-100 rounded-full hover:border-red-100 hover:bg-red-50/30 transition-all">
+                            <span className="text-[10px] uppercase tracking-widest font-bold text-zinc-600">{cat.name}</span>
+                            <button 
+                              onClick={async () => {
+                                if (confirm(`Deletar categoria "${cat.name}"?`)) {
+                                  try {
+                                    await deleteCategory(cat.id);
+                                  } catch (error: any) {
+                                    alert(error.message);
                                   }
-                                }}
-                                className="w-10 h-10 rounded-xl flex items-center justify-center text-zinc-300 hover:text-red-500 hover:bg-red-50 transition-all"
-                              >
-                                <Trash2 size={18} />
-                              </button>
-                            </td>
-                          </tr>
+                                }
+                              }}
+                              className="text-zinc-300 hover:text-red-500 transition-colors"
+                            >
+                              <Trash2 size={10} />
+                            </button>
+                          </div>
                         ))
                       )}
-                    </tbody>
-                  </table>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Photo Form */}
+                <div className="bg-white rounded-3xl border border-zinc-100 p-8 shadow-xl shadow-zinc-200/50 sticky top-32">
+                  <h2 className="text-lg font-display italic mb-8 flex items-center text-zinc-950">
+                    <Plus size={20} className="mr-3 text-zinc-400" /> Nova Obra
+                  </h2>
+                  <form action={addPhoto} className="space-y-6">
+                    <div className="space-y-2">
+                      <label className="block text-[10px] uppercase tracking-widest text-zinc-400 font-bold ml-1">Imagem (CloudCanary)</label>
+                      <div className="space-y-4">
+                        <div className="relative group">
+                          <input 
+                            type="file" 
+                            accept="image/*"
+                            onChange={async (e) => {
+                              const file = e.target.files?.[0];
+                              if (!file) return;
+                              
+                              setIsUploading(true);
+                              try {
+                                const formData = new FormData();
+                                formData.append("file", file);
+                                const result = await uploadImage(formData);
+                                // Update the URL input
+                                const urlInput = document.querySelector('input[name="url"]') as HTMLInputElement;
+                                if (urlInput) urlInput.value = result.url;
+                              } catch (error) {
+                                alert("Erro no upload. Verifique suas chaves do Cloudinary.");
+                              } finally {
+                                setIsUploading(false);
+                              }
+                            }}
+                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" 
+                          />
+                          <div className="w-full bg-zinc-50 border-2 border-dashed border-zinc-200 rounded-2xl p-8 flex flex-col items-center justify-center gap-3 transition-all group-hover:border-zinc-950/20 group-hover:bg-zinc-100/50">
+                            {isUploading ? (
+                              <Loader2 size={24} className="text-zinc-400 animate-spin" />
+                            ) : (
+                              <Upload size={24} className="text-zinc-300" />
+                            )}
+                            <p className="text-[10px] uppercase tracking-widest text-zinc-400 font-bold">
+                              {isUploading ? "Enviando..." : "Arraste ou clique para upload"}
+                            </p>
+                          </div>
+                        </div>
+                        
+                        <div className="relative">
+                          <div className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-300">
+                            <LinkIcon size={14} />
+                          </div>
+                          <input name="url" type="url" required placeholder="https://cloudinary.com/..." className="w-full bg-zinc-50 border border-zinc-100 rounded-2xl p-4 pl-12 text-sm focus:outline-none focus:ring-4 focus:ring-zinc-950/5 focus:border-zinc-950/20 transition-all font-mono" />
+                        </div>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="block text-[10px] uppercase tracking-widest text-zinc-400 font-bold ml-1">Título</label>
+                      <input name="title" type="text" required className="w-full bg-zinc-50 border border-zinc-100 rounded-2xl p-4 text-sm focus:outline-none focus:ring-4 focus:ring-zinc-950/5 focus:border-zinc-950/20 transition-all" />
+                    </div>
+                    <div className="grid grid-cols-1 gap-6">
+                      <div className="space-y-2">
+                        <label className="block text-[10px] uppercase tracking-widest text-zinc-400 font-bold ml-1">Localização (Cidade)</label>
+                        <CityAutocomplete 
+                          name="location"
+                          onCitySelect={(city) => {
+                            // Set hidden inputs
+                            const latInput = document.querySelector('input[name="lat"]') as HTMLInputElement;
+                            const lngInput = document.querySelector('input[name="lng"]') as HTMLInputElement;
+                            if (latInput) latInput.value = city?.lat?.toString() || "";
+                            if (lngInput) lngInput.value = city?.lng?.toString() || "";
+                          }} 
+                        />
+                        <input type="hidden" name="lat" />
+                        <input type="hidden" name="lng" />
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="block text-[10px] uppercase tracking-widest text-zinc-400 font-bold ml-1">Categoria</label>
+                        <select name="category" required className="w-full bg-zinc-50 border border-zinc-100 rounded-2xl p-4 text-sm focus:outline-none focus:ring-4 focus:ring-zinc-950/5 focus:border-zinc-950/20 transition-all appearance-none">
+                          {initialCategories.length === 0 ? (
+                            <>
+                              <option value="Landscape">Paisagem</option>
+                              <option value="Urban">Urbano</option>
+                              <option value="Wildlife">Vida Selvagem</option>
+                              <option value="Daily">Cotidiano</option>
+                            </>
+                          ) : (
+                            initialCategories.map(cat => (
+                              <option key={cat.id} value={cat.name}>{cat.name}</option>
+                            ))
+                          )}
+                        </select>
+                      </div>
+                    </div>
+                    <button type="submit" className="w-full bg-zinc-950 text-white rounded-2xl py-4 hover:bg-zinc-800 transition-all font-bold flex items-center justify-center">
+                      <Save size={16} className="mr-3" />
+                      <span className="text-[10px] uppercase tracking-[0.2em]">Adicionar à Galeria</span>
+                    </button>
+                  </form>
                 </div>
               </div>
-            </div>
-          </motion.div>
+
+              {/* Photo List */}
+              <div className="lg:col-span-8">
+                <div className="bg-white rounded-3xl border border-zinc-100 shadow-xl shadow-zinc-200/50 overflow-hidden">
+                  <div className="px-8 py-6 bg-zinc-50/50 border-b border-zinc-100 flex justify-between items-center">
+                    <span className="text-[10px] uppercase tracking-widest text-zinc-400 font-bold">Acervo ({initialPhotos.length})</span>
+                    <div className="flex gap-2">
+                      <div className="w-2 h-2 rounded-full bg-zinc-200" />
+                      <div className="w-2 h-2 rounded-full bg-zinc-200" />
+                      <div className="w-2 h-2 rounded-full bg-zinc-200" />
+                    </div>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left">
+                      <tbody className="divide-y divide-zinc-50">
+                        {initialPhotos.length === 0 ? (
+                          <tr><td className="p-20 text-center text-sm text-zinc-400 italic">O deserto está vazio por aqui... comece a criar.</td></tr>
+                        ) : (
+                          initialPhotos.map((photo) => (
+                            <tr key={photo.id} className="hover:bg-zinc-50/30 transition-colors group">
+                              <td className="p-6 w-32">
+                                <div className="aspect-[4/5] bg-zinc-100 rounded-2xl overflow-hidden relative shadow-md group-hover:scale-[1.05] transition-transform duration-500">
+                                  <img src={photo.url} alt="" className="absolute inset-0 w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-700" />
+                                </div>
+                              </td>
+                              <td className="p-6">
+                                <h3 className="text-base font-display italic text-zinc-950 mb-2">{photo.title}</h3>
+                                <div className="flex flex-wrap items-center gap-4 text-[9px] uppercase tracking-widest font-bold">
+                                  <span className="flex items-center px-2 py-1 bg-zinc-100 rounded-lg text-zinc-400 group-hover:text-zinc-600 transition-colors">
+                                    <MapPin size={10} className="mr-2" /> {photo.location || "Coordenadas OCULTAS"}
+                                  </span>
+                                  <span className="flex items-center px-2 py-1 bg-zinc-100 rounded-lg text-zinc-400 group-hover:text-zinc-900 transition-colors">
+                                    <Tag size={10} className="mr-2" /> {photo.category}
+                                  </span>
+                                </div>
+                              </td>
+                              <td className="p-6 text-right">
+                                <button 
+                                  onClick={async () => {
+                                    if (confirm("Tem certeza que deseja apagar esta obra?")) {
+                                      await deletePhoto(photo.id);
+                                    }
+                                  }}
+                                  className="w-10 h-10 rounded-xl flex items-center justify-center text-zinc-300 hover:text-red-500 hover:bg-red-50 transition-all"
+                                >
+                                  <Trash2 size={18} />
+                                </button>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </div>
         )}
 
         {activeTab === "posts" && (
@@ -576,6 +645,39 @@ export default function AdminDashboard({
             exit={{ opacity: 0, scale: 0.98 }}
             className="grid grid-cols-1 lg:grid-cols-12 gap-10"
           >
+            {/* Blog Visibility Toggle */}
+            <div className="col-span-12 bg-white rounded-3xl border border-zinc-100 p-8 shadow-xl shadow-zinc-200/50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+              <div className="flex items-start gap-4">
+                <div className="bg-zinc-50 p-3 rounded-2xl">
+                  <Eye size={20} className="text-zinc-400" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-zinc-950">Exibição do Blog</h3>
+                  <p className="text-xs text-zinc-400 mt-1">Ative ou desative a exibição do Blog/Histórias na página inicial e no menu lateral para seus visitantes.</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-4">
+                <form action={updateSiteContent} className="flex items-center gap-3">
+                  <input type="hidden" name="show_blog" value={initialContent["show_blog"] === "true" ? "false" : "true"} />
+                  <button
+                    type="submit"
+                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                      initialContent["show_blog"] === "true" ? "bg-zinc-950" : "bg-zinc-200"
+                    }`}
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                        initialContent["show_blog"] === "true" ? "translate-x-5" : "translate-x-0"
+                      }`}
+                    />
+                  </button>
+                  <span className="text-xs font-bold text-zinc-600 uppercase tracking-widest">
+                    {initialContent["show_blog"] === "true" ? "Visível" : "Oculto"}
+                  </span>
+                </form>
+              </div>
+            </div>
+
             {/* Post Form */}
             <div className="lg:col-span-4">
               <div className="bg-white rounded-3xl border border-zinc-100 p-8 shadow-xl shadow-zinc-200/50 sticky top-32">
@@ -739,7 +841,6 @@ export default function AdminDashboard({
           { label: "500px Link", key: "social_500px", type: "url" },
           { label: "LinkedIn Link", key: "social_linkedin", type: "url" },
           { label: "Pinterest Link", key: "social_pinterest", type: "url" },
-          { label: "Vero Link", key: "social_vero", type: "url" },
           { label: "Unsplash Link", key: "social_unsplash", type: "url" },
         ])}
 
