@@ -13,6 +13,7 @@ model Photo {
   id          String   @id @default(cuid())
   url         String
   title       String
+  description String?
   location    String?
   lat         Float?
   lng         Float?
@@ -97,6 +98,24 @@ model AboutConfig {
   address      String?
   linkText     String?
   photoUrl     String?
+
+  // Separated Homepage fields
+  homeGreeting     String?
+  homeTitleNormal  String?
+  homeTitleStyled  String?
+  homeBio          String?
+  homePhotoUrl     String?
+  homeLinkText     String?
+
+  // Separated Full About Page fields
+  pageTitle        String?
+  pageSubtitle     String?
+  pageBio          String?
+  pagePhotoUrl     String?
+  pageYears        String?
+  pageEquipment    String?
+  pageAddress      String?
+  pageAwards       String?
 }
 
 model ContactConfig {

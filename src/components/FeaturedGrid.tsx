@@ -52,7 +52,7 @@ export default function FeaturedGrid({ photos, title }: FeaturedGridProps) {
               viewport={{ once: true }}
               className="text-xl md:text-3xl 3xl:text-6xl font-light leading-relaxed text-zinc-950 italic font-display max-w-4xl 3xl:max-w-7xl mx-auto text-balance"
             >
-              "A fotografia é a interrupção da mente por um instante de luz."
+              &ldquo;A fotografia é a interrupção da mente por um instante de luz.&rdquo;
             </motion.p>
 
           {/* Gallery Grid (3x2 ou 4x[n]) */}

@@ -1,16 +1,18 @@
 "use client";
 
-import { useState } from "react";
-import { addPhoto, deletePhoto, addPost, deletePost, updateSiteContent, uploadImage, addUser, deleteUser, addCategory, deleteCategory } from "@/app/admin/actions";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { addPhoto, updatePhoto, deletePhoto, addPost, deletePost, updateSiteContent, uploadImage, addUser, deleteUser, addCategory, deleteCategory } from "@/app/admin/actions";
 import { motion, AnimatePresence } from "framer-motion";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { Trash2, Plus, ImageIcon, FileText, MapPin, Tag, Calendar, AlignLeft, Home, User, Mail, Save, LayoutDashboard, Settings, TrendingUp, Eye, ArrowUpRight, Upload, Loader2, Link as LinkIcon, Users, Shield, ShieldAlert, ShieldCheck, Globe, Search } from "lucide-react";
+import { Trash2, Plus, Edit, ImageIcon, FileText, MapPin, Tag, Calendar, AlignLeft, Home, User, Mail, Save, LayoutDashboard, Settings, TrendingUp, Eye, ArrowUpRight, Upload, Loader2, Link as LinkIcon, Users, Shield, ShieldAlert, ShieldCheck, Globe, Search, CheckCircle, AlertCircle, Info, X } from "lucide-react";
 import CityAutocomplete from "./CityAutocomplete";
 
 interface Photo {
   id: string;
   url: string;
   title: string;
+  description?: string | null;
   location: string | null;
   lat: number | null;
   lng: number | null;
@@ -72,14 +74,186 @@ export default function AdminDashboard({
   currentUser,
   googleMapsApiKey // Keeping for compatibility in props but not using
 }: AdminDashboardProps) {
-  const [isUploading, setIsUploading] = useState(false);
+  const router = useRouter();
+  const [isUploadingGallery, setIsUploadingGallery] = useState(false);
+  const [isUploadingBlog, setIsUploadingBlog] = useState(false);
+  const [isUploadingHomeBg, setIsUploadingHomeBg] = useState(false);
+  const [isUploadingAboutHome, setIsUploadingAboutHome] = useState(false);
+  const [isUploadingAboutPage, setIsUploadingAboutPage] = useState(false);
+  const [uploadedUrl, setUploadedUrl] = useState("");
+  const [uploadedBlogUrl, setUploadedBlogUrl] = useState("");
+  const [uploadedHomeBgUrl, setUploadedHomeBgUrl] = useState(initialContent["home_hero_bg_url"] || "");
+  const [uploadedAboutHomePhotoUrl, setUploadedAboutHomePhotoUrl] = useState(initialContent["about_home_photo_url"] !== undefined ? initialContent["about_home_photo_url"] : (initialContent["about_photo_url"] || ""));
+  const [uploadedAboutPagePhotoUrl, setUploadedAboutPagePhotoUrl] = useState(initialContent["about_page_photo_url"] !== undefined ? initialContent["about_page_photo_url"] : (initialContent["about_photo_url"] || ""));
   const [activeTab, setActiveTab] = useState("dashboard");
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    setUploadedHomeBgUrl(initialContent["home_hero_bg_url"] || "");
+  }, [initialContent["home_hero_bg_url"]]);
+
+  useEffect(() => {
+    setUploadedAboutHomePhotoUrl(initialContent["about_home_photo_url"] !== undefined ? initialContent["about_home_photo_url"] : (initialContent["about_photo_url"] || ""));
+  }, [initialContent["about_home_photo_url"], initialContent["about_photo_url"]]);
+
+  useEffect(() => {
+    setUploadedAboutPagePhotoUrl(initialContent["about_page_photo_url"] !== undefined ? initialContent["about_page_photo_url"] : (initialContent["about_photo_url"] || ""));
+  }, [initialContent["about_page_photo_url"], initialContent["about_photo_url"]]);
+
+  const [editingPhoto, setEditingPhoto] = useState<Photo | null>(null);
+  const [photoToDelete, setPhotoToDelete] = useState<Photo | null>(null);
+  const [isDeletingPhoto, setIsDeletingPhoto] = useState(false);
+
+  useEffect(() => {
+    if (editingPhoto) {
+      setUploadedUrl(editingPhoto.url);
+    } else {
+      setUploadedUrl("");
+    }
+  }, [editingPhoto]);
+
+  const [isSavingPhoto, setIsSavingPhoto] = useState(false);
+  const [photoFormKey, setPhotoFormKey] = useState(0);
+  const [isSavingPost, setIsSavingPost] = useState(false);
+  const [postFormKey, setPostFormKey] = useState(0);
+
+  const [toast, setToast] = useState<{ message: string; type: "success" | "error" | "info" } | null>(null);
+
+  useEffect(() => {
+    if (toast) {
+      const timer = setTimeout(() => setToast(null), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [toast]);
+
+  const showNotification = (message: string, type: "success" | "error" | "info" = "info") => {
+    setToast({ message, type });
+  };
+
+  const uploadImageClient = async (formData: FormData): Promise<{ url?: string; error?: string }> => {
+    try {
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+      if (!res.ok) {
+        const errorText = await res.text();
+        let errorData;
+        try {
+          errorData = JSON.parse(errorText);
+        } catch {
+          // ignore
+        }
+        if (errorData?.error) {
+          return { error: errorData.error };
+        }
+        if (errorText.trim().startsWith("<")) {
+          const titleMatch = errorText.match(/<title>([\s\S]*?)<\/title>/i);
+          const title = titleMatch ? titleMatch[1].trim() : "";
+          return { error: `Erro ${res.status}: ${title || "Resposta HTML inválida do servidor"}` };
+        }
+        return { error: `Erro HTTP ${res.status}: ${errorText.substring(0, 100)}${errorText.length > 100 ? "..." : ""}` };
+      }
+      return await res.json();
+    } catch (err: any) {
+      return { error: err.message || "Erro de rede no upload" };
+    }
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!photoToDelete) return;
+    setIsDeletingPhoto(true);
+    try {
+      const res = await deletePhoto(photoToDelete.id);
+      if (res && res.error) {
+        showNotification("Erro ao excluir obra: " + res.error, "error");
+      } else {
+        showNotification("Obra excluída com sucesso!", "success");
+        router.refresh();
+      }
+    } catch (err: any) {
+      showNotification("Erro ao excluir obra: " + (err.message || err), "error");
+    } finally {
+      setIsDeletingPhoto(false);
+      setPhotoToDelete(null);
+    }
+  };
+
+  const handlePhotoSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!uploadedUrl) {
+      showNotification("Por favor, faça o upload de uma imagem primeiro.", "error");
+      return;
+    }
+    setIsSavingPhoto(true);
+    try {
+      const formData = new FormData(e.currentTarget);
+      formData.set("url", uploadedUrl);
+      
+      let res;
+      if (editingPhoto) {
+        formData.set("id", editingPhoto.id);
+        res = await updatePhoto(formData);
+      } else {
+        res = await addPhoto(formData);
+      }
+
+      if (res && res.error) {
+        showNotification("Erro ao salvar obra: " + res.error, "error");
+      } else {
+        if (editingPhoto) {
+          showNotification("Obra atualizada com sucesso!", "success");
+          setEditingPhoto(null);
+        } else {
+          showNotification("Obra adicionada à galeria com sucesso!", "success");
+        }
+        setUploadedUrl("");
+        setPhotoFormKey(prev => prev + 1);
+        router.refresh();
+      }
+    } catch (error: any) {
+      showNotification("Erro ao salvar obra: " + (error.message || error), "error");
+    } finally {
+      setIsSavingPhoto(false);
+    }
+  };
+
+  const handlePostSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!uploadedBlogUrl) {
+      showNotification("Por favor, faça o upload de uma imagem de capa primeiro.", "error");
+      return;
+    }
+    setIsSavingPost(true);
+    try {
+      const formData = new FormData(e.currentTarget);
+      formData.set("image", uploadedBlogUrl);
+      const res = await addPost(formData);
+      if (res && res.error) {
+        showNotification("Erro ao salvar post: " + res.error, "error");
+      } else {
+        showNotification("Post publicado com sucesso!", "success");
+        setUploadedBlogUrl("");
+        setPostFormKey(prev => prev + 1);
+        router.refresh();
+      }
+    } catch (error: any) {
+      showNotification("Erro ao salvar post: " + (error.message || error), "error");
+    } finally {
+      setIsSavingPost(false);
+    }
+  };
 
   const isAdmin = currentUser.role === "ADMIN";
 
   const tabs = [
     { id: "dashboard", label: "Métricas", icon: LayoutDashboard },
     { id: "photos", label: "Galeria", icon: ImageIcon },
+    { id: "categories", label: "Categorias", icon: Tag },
     { id: "posts", label: "Blog", icon: FileText },
     { id: "home", label: "Home", icon: Home },
     { id: "about", label: "Sobre", icon: User },
@@ -117,7 +291,20 @@ export default function AdminDashboard({
         </div>
       </div>
 
-      <form action={updateSiteContent} className="grid grid-cols-1 md:grid-cols-2 gap-8">
+      <form 
+        onSubmit={async (e) => {
+          e.preventDefault();
+          const formData = new FormData(e.currentTarget);
+          try {
+            await updateSiteContent(formData);
+            showNotification("Alterações salvas com sucesso!", "success");
+            router.refresh();
+          } catch (error: any) {
+            showNotification("Erro ao salvar alterações: " + (error.message || error), "error");
+          }
+        }} 
+        className="grid grid-cols-1 md:grid-cols-2 gap-8"
+      >
         {fields.map((field) => (
           <div key={field.key} className={field.type === "textarea" ? "md:col-span-2" : ""}>
             <label className="block text-[10px] uppercase tracking-widest text-zinc-400 font-bold mb-3 ml-1">{field.label}</label>
@@ -147,6 +334,14 @@ export default function AdminDashboard({
       </form>
     </motion.div>
   );
+
+  if (!mounted) {
+    return (
+      <div className="max-w-7xl mx-auto flex items-center justify-center py-32">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-zinc-900" />
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-7xl mx-auto">
@@ -422,72 +617,53 @@ export default function AdminDashboard({
             <motion.div 
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="grid grid-cols-1 lg:grid-cols-12 gap-10"
+              className="space-y-12"
             >
-              {/* Sidebar: Add Category + Add Photo */}
-              <div className="lg:col-span-4 space-y-10">
-                {/* Category Management */}
-                <div className="bg-white rounded-3xl border border-zinc-100 p-8 shadow-xl shadow-zinc-200/50">
-                  <h2 className="text-lg font-display italic mb-8 flex items-center text-zinc-950">
-                    <Tag size={20} className="mr-3 text-zinc-400" /> Categorias
-                  </h2>
-                  <form action={async (formData) => {
-                    try {
-                      await addCategory(formData);
-                    } catch (error: any) {
-                      alert(error.message);
-                    }
-                  }} className="space-y-6">
-                    <div className="space-y-2">
-                      <label className="block text-[10px] uppercase tracking-widest text-zinc-400 font-bold ml-1">Nova Categoria</label>
-                      <div className="relative flex gap-2">
-                        <input name="name" type="text" required placeholder="Ex: Black & White" className="flex-1 bg-zinc-50 border border-zinc-100 rounded-2xl p-4 text-sm focus:outline-none focus:ring-4 focus:ring-zinc-950/5 focus:border-zinc-950/20 transition-all" />
-                        <button type="submit" className="bg-zinc-950 text-white px-6 rounded-2xl hover:bg-zinc-800 transition-all">
-                          <Plus size={16} />
-                        </button>
-                      </div>
-                    </div>
-                  </form>
-
-                  <div className="mt-8 pt-8 border-t border-zinc-50">
-                    <div className="flex flex-wrap gap-2">
-                      {initialCategories.length === 0 ? (
-                        <p className="text-[10px] text-zinc-400 italic">Nenhuma categoria cadastrada.</p>
-                      ) : (
-                        initialCategories.map((cat) => (
-                          <div key={cat.id} className="group flex items-center gap-2 px-3 py-1.5 bg-zinc-50 border border-zinc-100 rounded-full hover:border-red-100 hover:bg-red-50/30 transition-all">
-                            <span className="text-[10px] uppercase tracking-widest font-bold text-zinc-600">{cat.name}</span>
-                            <button 
-                              onClick={async () => {
-                                if (confirm(`Deletar categoria "${cat.name}"?`)) {
-                                  try {
-                                    await deleteCategory(cat.id);
-                                  } catch (error: any) {
-                                    alert(error.message);
-                                  }
-                                }
-                              }}
-                              className="text-zinc-300 hover:text-red-500 transition-colors"
+              {/* Photo Form - Centered and elegant */}
+              <div className="bg-white rounded-3xl border border-zinc-100 p-8 md:p-12 shadow-xl shadow-zinc-200/50 max-w-4xl mx-auto">
+                <h2 className="text-xl font-display italic mb-10 flex items-center text-zinc-950 justify-between">
+                  <span className="flex items-center">
+                    {editingPhoto ? (
+                      <>
+                        <Edit size={24} className="mr-3 text-zinc-400" /> Editar Obra: &ldquo;{editingPhoto.title}&rdquo;
+                      </>
+                    ) : (
+                      <>
+                        <Plus size={24} className="mr-3 text-zinc-400" /> Nova Obra
+                      </>
+                    )}
+                  </span>
+                  {editingPhoto && (
+                    <button
+                      type="button"
+                      onClick={() => setEditingPhoto(null)}
+                      className="text-xs text-zinc-400 hover:text-zinc-950 transition-colors uppercase tracking-widest font-bold border border-zinc-200 rounded-xl px-3 py-1.5 cursor-pointer"
+                    >
+                      Cancelar Edição
+                    </button>
+                  )}
+                </h2>
+                <form key={editingPhoto ? `edit-${editingPhoto.id}-${photoFormKey}` : `new-${photoFormKey}`} onSubmit={handlePhotoSubmit} className="space-y-8">
+                  <div className="space-y-3">
+                    <label className="block text-[10px] uppercase tracking-widest text-zinc-400 font-bold ml-1">Imagem da Obra</label>
+                    <input type="hidden" name="url" value={uploadedUrl} required />
+                    
+                    <div className="relative group w-full">
+                      {uploadedUrl ? (
+                        <div className="relative w-full aspect-[16/9] md:aspect-[21/9] bg-zinc-50 border border-zinc-100 rounded-2xl overflow-hidden shadow-sm">
+                          <img src={uploadedUrl} alt="Preview da Obra" className="w-full h-full object-cover" />
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center gap-3">
+                            <button
+                              type="button"
+                              onClick={() => setUploadedUrl("")}
+                              className="bg-white/90 hover:bg-white text-red-600 font-bold text-[10px] uppercase tracking-wider px-4 py-2 rounded-xl flex items-center gap-2 transition-all shadow-lg pointer-events-auto"
                             >
-                              <Trash2 size={10} />
+                              <Trash2 size={12} /> Remover e trocar imagem
                             </button>
                           </div>
-                        ))
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Photo Form */}
-                <div className="bg-white rounded-3xl border border-zinc-100 p-8 shadow-xl shadow-zinc-200/50 sticky top-32">
-                  <h2 className="text-lg font-display italic mb-8 flex items-center text-zinc-950">
-                    <Plus size={20} className="mr-3 text-zinc-400" /> Nova Obra
-                  </h2>
-                  <form action={addPhoto} className="space-y-6">
-                    <div className="space-y-2">
-                      <label className="block text-[10px] uppercase tracking-widest text-zinc-400 font-bold ml-1">Imagem (CloudCanary)</label>
-                      <div className="space-y-4">
-                        <div className="relative group">
+                        </div>
+                      ) : (
+                        <div className="relative">
                           <input 
                             type="file" 
                             accept="image/*"
@@ -495,141 +671,246 @@ export default function AdminDashboard({
                               const file = e.target.files?.[0];
                               if (!file) return;
                               
-                              setIsUploading(true);
+                              if (file.size > 40 * 1024 * 1024) {
+                                showNotification("A imagem não pode ser maior que 40MB.", "error");
+                                return;
+                              }
+                              
+                              setIsUploadingGallery(true);
                               try {
                                 const formData = new FormData();
                                 formData.append("file", file);
-                                const result = await uploadImage(formData);
-                                // Update the URL input
-                                const urlInput = document.querySelector('input[name="url"]') as HTMLInputElement;
-                                if (urlInput) urlInput.value = result.url;
-                              } catch (error) {
-                                alert("Erro no upload. Verifique suas chaves do Cloudinary.");
+                                const result = await uploadImageClient(formData);
+                                if (result.error) {
+                                  showNotification("Erro no upload: " + result.error, "error");
+                                } else if (result.url) {
+                                  setUploadedUrl(result.url);
+                                } else {
+                                  showNotification("Erro inesperado no upload.", "error");
+                                }
+                              } catch (error: any) {
+                                showNotification("Erro no upload: " + (error.message || error), "error");
                               } finally {
-                                setIsUploading(false);
+                                  setIsUploadingGallery(false);
                               }
                             }}
                             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" 
                           />
-                          <div className="w-full bg-zinc-50 border-2 border-dashed border-zinc-200 rounded-2xl p-8 flex flex-col items-center justify-center gap-3 transition-all group-hover:border-zinc-950/20 group-hover:bg-zinc-100/50">
-                            {isUploading ? (
-                              <Loader2 size={24} className="text-zinc-400 animate-spin" />
+                          <div className="w-full min-h-[200px] bg-zinc-50 border-2 border-dashed border-zinc-200 rounded-2xl p-8 flex flex-col items-center justify-center gap-3 transition-all group-hover:border-zinc-950/20 group-hover:bg-zinc-100/50">
+                            {isUploadingGallery ? (
+                              <Loader2 size={28} className="text-zinc-400 animate-spin" />
                             ) : (
-                              <Upload size={24} className="text-zinc-300" />
+                              <Upload size={28} className="text-zinc-300" />
                             )}
-                            <p className="text-[10px] uppercase tracking-widest text-zinc-400 font-bold">
-                              {isUploading ? "Enviando..." : "Arraste ou clique para upload"}
+                            <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-400 font-bold text-center">
+                              {isUploadingGallery ? "Enviando imagem..." : "Arraste ou clique para fazer upload da foto"}
                             </p>
                           </div>
                         </div>
-                        
-                        <div className="relative">
-                          <div className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-300">
-                            <LinkIcon size={14} />
-                          </div>
-                          <input name="url" type="url" required placeholder="https://cloudinary.com/..." className="w-full bg-zinc-50 border border-zinc-100 rounded-2xl p-4 pl-12 text-sm focus:outline-none focus:ring-4 focus:ring-zinc-950/5 focus:border-zinc-950/20 transition-all font-mono" />
-                        </div>
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <label className="block text-[10px] uppercase tracking-widest text-zinc-400 font-bold ml-1">Título</label>
-                      <input name="title" type="text" required className="w-full bg-zinc-50 border border-zinc-100 rounded-2xl p-4 text-sm focus:outline-none focus:ring-4 focus:ring-zinc-950/5 focus:border-zinc-950/20 transition-all" />
-                    </div>
-                    <div className="grid grid-cols-1 gap-6">
-                      <div className="space-y-2">
-                        <label className="block text-[10px] uppercase tracking-widest text-zinc-400 font-bold ml-1">Localização (Cidade)</label>
-                        <CityAutocomplete 
-                          name="location"
-                          onCitySelect={(city) => {
-                            // Set hidden inputs
-                            const latInput = document.querySelector('input[name="lat"]') as HTMLInputElement;
-                            const lngInput = document.querySelector('input[name="lng"]') as HTMLInputElement;
-                            if (latInput) latInput.value = city?.lat?.toString() || "";
-                            if (lngInput) lngInput.value = city?.lng?.toString() || "";
-                          }} 
-                        />
-                        <input type="hidden" name="lat" />
-                        <input type="hidden" name="lng" />
-                      </div>
-
-                      <div className="space-y-2">
-                        <label className="block text-[10px] uppercase tracking-widest text-zinc-400 font-bold ml-1">Categoria</label>
-                        <select name="category" required className="w-full bg-zinc-50 border border-zinc-100 rounded-2xl p-4 text-sm focus:outline-none focus:ring-4 focus:ring-zinc-950/5 focus:border-zinc-950/20 transition-all appearance-none">
-                          {initialCategories.length === 0 ? (
-                            <>
-                              <option value="Landscape">Paisagem</option>
-                              <option value="Urban">Urbano</option>
-                              <option value="Wildlife">Vida Selvagem</option>
-                              <option value="Daily">Cotidiano</option>
-                            </>
-                          ) : (
-                            initialCategories.map(cat => (
-                              <option key={cat.id} value={cat.name}>{cat.name}</option>
-                            ))
-                          )}
-                        </select>
-                      </div>
-                    </div>
-                    <button type="submit" className="w-full bg-zinc-950 text-white rounded-2xl py-4 hover:bg-zinc-800 transition-all font-bold flex items-center justify-center">
-                      <Save size={16} className="mr-3" />
-                      <span className="text-[10px] uppercase tracking-[0.2em]">Adicionar à Galeria</span>
-                    </button>
-                  </form>
-                </div>
-              </div>
-
-              {/* Photo List */}
-              <div className="lg:col-span-8">
-                <div className="bg-white rounded-3xl border border-zinc-100 shadow-xl shadow-zinc-200/50 overflow-hidden">
-                  <div className="px-8 py-6 bg-zinc-50/50 border-b border-zinc-100 flex justify-between items-center">
-                    <span className="text-[10px] uppercase tracking-widest text-zinc-400 font-bold">Acervo ({initialPhotos.length})</span>
-                    <div className="flex gap-2">
-                      <div className="w-2 h-2 rounded-full bg-zinc-200" />
-                      <div className="w-2 h-2 rounded-full bg-zinc-200" />
-                      <div className="w-2 h-2 rounded-full bg-zinc-200" />
+                      )}
                     </div>
                   </div>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left">
-                      <tbody className="divide-y divide-zinc-50">
-                        {initialPhotos.length === 0 ? (
-                          <tr><td className="p-20 text-center text-sm text-zinc-400 italic">O deserto está vazio por aqui... comece a criar.</td></tr>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="space-y-2">
+                      <label className="block text-[10px] uppercase tracking-widest text-zinc-400 font-bold ml-1">Título</label>
+                      <input name="title" type="text" defaultValue={editingPhoto?.title || ""} required className="w-full bg-zinc-50 border border-zinc-100 rounded-2xl p-4 text-sm focus:outline-none focus:ring-4 focus:ring-zinc-950/5 focus:border-zinc-950/20 transition-all" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="block text-[10px] uppercase tracking-widest text-zinc-400 font-bold ml-1">Localização (Cidade ou Local)</label>
+                      <CityAutocomplete 
+                        name="location"
+                        defaultValue={editingPhoto?.location || ""}
+                        onCitySelect={(city) => {
+                          // Set hidden inputs
+                          const latInput = document.querySelector('input[name="lat"]') as HTMLInputElement;
+                          const lngInput = document.querySelector('input[name="lng"]') as HTMLInputElement;
+                          if (latInput) latInput.value = city?.lat?.toString() || "";
+                          if (lngInput) lngInput.value = city?.lng?.toString() || "";
+                        }} 
+                      />
+                      <input type="hidden" name="lat" defaultValue={editingPhoto?.lat?.toString() || ""} />
+                      <input type="hidden" name="lng" defaultValue={editingPhoto?.lng?.toString() || ""} />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="block text-[10px] uppercase tracking-widest text-zinc-400 font-bold ml-1">Descrição / História sobre a Foto</label>
+                    <textarea 
+                      name="description" 
+                      rows={4} 
+                      defaultValue={editingPhoto?.description || ""} 
+                      placeholder="Conte a história por trás desta foto... (Esta história ficará oculta na galeria por enquanto)" 
+                      className="w-full bg-zinc-50 border border-zinc-100 rounded-2xl p-4 text-sm focus:outline-none focus:ring-4 focus:ring-zinc-950/5 focus:border-zinc-950/20 transition-all resize-none font-sans"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="space-y-2">
+                      <label className="block text-[10px] uppercase tracking-widest text-zinc-400 font-bold ml-1">Categoria</label>
+                      <select name="category" defaultValue={editingPhoto?.category || ""} required className="w-full bg-zinc-50 border border-zinc-100 rounded-2xl p-4 text-sm focus:outline-none focus:ring-4 focus:ring-zinc-950/5 focus:border-zinc-950/20 transition-all appearance-none">
+                        {initialCategories.length === 0 ? (
+                          <>
+                            <option value="Landscape">Paisagem</option>
+                            <option value="Urban">Urbano</option>
+                            <option value="Wildlife">Vida Selvagem</option>
+                            <option value="Daily">Cotidiano</option>
+                          </>
                         ) : (
-                          initialPhotos.map((photo) => (
-                            <tr key={photo.id} className="hover:bg-zinc-50/30 transition-colors group">
-                              <td className="p-6 w-32">
-                                <div className="aspect-[4/5] bg-zinc-100 rounded-2xl overflow-hidden relative shadow-md group-hover:scale-[1.05] transition-transform duration-500">
-                                  <img src={photo.url} alt="" className="absolute inset-0 w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-700" />
-                                </div>
-                              </td>
-                              <td className="p-6">
-                                <h3 className="text-base font-display italic text-zinc-950 mb-2">{photo.title}</h3>
-                                <div className="flex flex-wrap items-center gap-4 text-[9px] uppercase tracking-widest font-bold">
-                                  <span className="flex items-center px-2 py-1 bg-zinc-100 rounded-lg text-zinc-400 group-hover:text-zinc-600 transition-colors">
-                                    <MapPin size={10} className="mr-2" /> {photo.location || "Coordenadas OCULTAS"}
-                                  </span>
-                                  <span className="flex items-center px-2 py-1 bg-zinc-100 rounded-lg text-zinc-400 group-hover:text-zinc-900 transition-colors">
-                                    <Tag size={10} className="mr-2" /> {photo.category}
-                                  </span>
-                                </div>
-                              </td>
-                              <td className="p-6 text-right">
+                          initialCategories.map(cat => (
+                            <option key={cat.id} value={cat.name}>{cat.name}</option>
+                          ))
+                        )}
+                      </select>
+                    </div>
+                    <div className="flex items-end">
+                      <button 
+                        type="submit" 
+                        disabled={isSavingPhoto}
+                        className="w-full bg-zinc-950 text-white rounded-2xl py-4 hover:bg-zinc-800 transition-all font-bold flex items-center justify-center group disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                      >
+                        {isSavingPhoto ? (
+                          <Loader2 size={16} className="mr-3 animate-spin" />
+                        ) : (
+                          <Save size={16} className="mr-3 group-hover:rotate-12 transition-transform" />
+                        )}
+                        <span className="text-[10px] uppercase tracking-[0.2em]">
+                          {isSavingPhoto ? (editingPhoto ? "Salvando..." : "Adicionando...") : (editingPhoto ? "Salvar Alterações" : "Adicionar à Galeria")}
+                        </span>
+                      </button>
+                    </div>
+                  </div>
+                </form>
+              </div>
+
+              {/* Photo List (Acervo) - Centered and elegant */}
+              <div className="max-w-5xl mx-auto bg-white rounded-3xl border border-zinc-100 shadow-xl shadow-zinc-200/50 overflow-hidden">
+                <div className="px-8 py-6 bg-zinc-50/50 border-b border-zinc-100 flex justify-between items-center">
+                  <span className="text-[10px] uppercase tracking-widest text-zinc-400 font-bold">Acervo de Fotos ({initialPhotos.length})</span>
+                  <div className="flex gap-2">
+                    <div className="w-2 h-2 rounded-full bg-zinc-200" />
+                    <div className="w-2 h-2 rounded-full bg-zinc-200" />
+                    <div className="w-2 h-2 rounded-full bg-zinc-200" />
+                  </div>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left">
+                    <tbody className="divide-y divide-zinc-50">
+                      {initialPhotos.length === 0 ? (
+                        <tr><td className="p-20 text-center text-sm text-zinc-400 italic">O deserto está vazio por aqui... comece a criar.</td></tr>
+                      ) : (
+                        initialPhotos.map((photo) => (
+                          <tr key={photo.id} className="hover:bg-zinc-50/30 transition-colors group">
+                            <td className="p-6 w-32">
+                              <div className="aspect-[4/5] bg-zinc-100 rounded-2xl overflow-hidden relative shadow-md group-hover:scale-[1.05] transition-transform duration-500">
+                                <img src={photo.url} alt="" className="absolute inset-0 w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-700" />
+                              </div>
+                            </td>
+                            <td className="p-6">
+                              <h3 className="text-base font-display italic text-zinc-950 mb-2">{photo.title}</h3>
+                              <div className="flex flex-wrap items-center gap-4 text-[9px] uppercase tracking-widest font-bold">
+                                <span className="flex items-center px-2 py-1 bg-zinc-100 rounded-lg text-zinc-400 group-hover:text-zinc-600 transition-colors">
+                                  <MapPin size={10} className="mr-2" /> {photo.location || "Coordenadas OCULTAS"}
+                                </span>
+                                <span className="flex items-center px-2 py-1 bg-zinc-100 rounded-lg text-zinc-400 group-hover:text-zinc-900 transition-colors">
+                                  <Tag size={10} className="mr-2" /> {photo.category}
+                                </span>
+                              </div>
+                            </td>
+                            <td className="p-6 text-right">
+                              <div className="flex items-center justify-end gap-2">
                                 <button 
-                                  onClick={async () => {
-                                    if (confirm("Tem certeza que deseja apagar esta obra?")) {
-                                      await deletePhoto(photo.id);
-                                    }
+                                  onClick={() => {
+                                    setEditingPhoto(photo);
+                                    window.scrollTo({ top: 0, behavior: "smooth" });
                                   }}
-                                  className="w-10 h-10 rounded-xl flex items-center justify-center text-zinc-300 hover:text-red-500 hover:bg-red-50 transition-all"
+                                  className="w-10 h-10 rounded-xl flex items-center justify-center text-zinc-300 hover:text-zinc-950 hover:bg-zinc-100 transition-all cursor-pointer"
+                                  title="Editar"
+                                >
+                                  <Edit size={18} />
+                                </button>
+                                <button 
+                                  onClick={() => {
+                                    setPhotoToDelete(photo);
+                                  }}
+                                  className="w-10 h-10 rounded-xl flex items-center justify-center text-zinc-300 hover:text-red-500 hover:bg-red-50 transition-all cursor-pointer"
+                                  title="Apagar"
                                 >
                                   <Trash2 size={18} />
                                 </button>
-                              </td>
-                            </tr>
-                          ))
-                        )}
-                      </tbody>
-                    </table>
+                              </div>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+
+        {activeTab === "categories" && (
+          <div key="categories" className="space-y-12">
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="max-w-3xl mx-auto"
+            >
+              <div className="bg-white rounded-3xl border border-zinc-100 p-8 md:p-12 shadow-xl shadow-zinc-200/50">
+                <h2 className="text-xl font-display italic mb-4 flex items-center text-zinc-950">
+                  <Tag size={24} className="mr-3 text-zinc-400" /> Categorias
+                </h2>
+                <p className="text-xs text-zinc-400 mb-10">Crie e remova as categorias que agrupam suas obras fotográficas na galeria.</p>
+                <form action={async (formData) => {
+                  try {
+                    await addCategory(formData);
+                    showNotification("Categoria adicionada com sucesso!", "success");
+                    router.refresh();
+                  } catch (error: any) {
+                    showNotification(error.message || error, "error");
+                  }
+                }} className="space-y-6">
+                  <div className="space-y-2">
+                    <label className="block text-[10px] uppercase tracking-widest text-zinc-400 font-bold ml-1">Nova Categoria</label>
+                    <div className="relative flex gap-2">
+                      <input name="name" type="text" required placeholder="Ex: Black & White" className="flex-1 bg-zinc-50 border border-zinc-100 rounded-2xl p-4 text-sm focus:outline-none focus:ring-4 focus:ring-zinc-950/5 focus:border-zinc-950/20 transition-all" />
+                      <button type="submit" className="bg-zinc-950 text-white px-8 rounded-2xl hover:bg-zinc-800 transition-all font-bold text-xs uppercase tracking-widest flex items-center gap-2">
+                        <Plus size={16} /> Adicionar
+                      </button>
+                    </div>
+                  </div>
+                </form>
+
+                <div className="mt-10 pt-10 border-t border-zinc-50">
+                  <h3 className="text-xs uppercase tracking-widest font-bold text-zinc-400 mb-6">Categorias Cadastradas</h3>
+                  <div className="flex flex-wrap gap-3">
+                    {initialCategories.length === 0 ? (
+                      <p className="text-xs text-zinc-400 italic">Nenhuma categoria cadastrada.</p>
+                    ) : (
+                      initialCategories.map((cat) => (
+                        <div key={cat.id} className="group flex items-center gap-3 px-4 py-2 bg-zinc-50 border border-zinc-100 rounded-full hover:border-red-100 hover:bg-red-50/30 transition-all">
+                          <span className="text-[10px] uppercase tracking-widest font-bold text-zinc-600">{cat.name}</span>
+                          <button 
+                            onClick={async () => {
+                              if (confirm(`Deletar categoria "${cat.name}"?`)) {
+                                try {
+                                  await deleteCategory(cat.id);
+                                  showNotification("Categoria excluída com sucesso!", "success");
+                                  router.refresh();
+                                } catch (error: any) {
+                                  showNotification(error.message || error, "error");
+                                }
+                              }
+                            }}
+                            className="text-zinc-300 hover:text-red-500 transition-colors"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
+                      ))
+                    )}
                   </div>
                 </div>
               </div>
@@ -638,116 +919,176 @@ export default function AdminDashboard({
         )}
 
         {activeTab === "posts" && (
-          <motion.div 
-            key="posts"
-            initial={{ opacity: 0, scale: 0.98 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.98 }}
-            className="grid grid-cols-1 lg:grid-cols-12 gap-10"
-          >
-            {/* Blog Visibility Toggle */}
-            <div className="col-span-12 bg-white rounded-3xl border border-zinc-100 p-8 shadow-xl shadow-zinc-200/50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
-              <div className="flex items-start gap-4">
-                <div className="bg-zinc-50 p-3 rounded-2xl">
-                  <Eye size={20} className="text-zinc-400" />
+          <div key="posts" className="space-y-12">
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="space-y-12"
+            >
+              {/* Blog Visibility Toggle */}
+              <div className="max-w-4xl mx-auto bg-white rounded-3xl border border-zinc-100 p-8 shadow-xl shadow-zinc-200/50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+                <div className="flex items-start gap-4">
+                  <div className="bg-zinc-50 p-3 rounded-2xl">
+                    <Eye size={20} className="text-zinc-400" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-zinc-950">Exibição do Blog</h3>
+                    <p className="text-xs text-zinc-400 mt-1">Ative ou desative a exibição do Blog/Histórias na página inicial e no menu lateral para seus visitantes.</p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-sm font-bold text-zinc-950">Exibição do Blog</h3>
-                  <p className="text-xs text-zinc-400 mt-1">Ative ou desative a exibição do Blog/Histórias na página inicial e no menu lateral para seus visitantes.</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-4">
-                <form action={updateSiteContent} className="flex items-center gap-3">
-                  <input type="hidden" name="show_blog" value={initialContent["show_blog"] === "true" ? "false" : "true"} />
-                  <button
-                    type="submit"
-                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                      initialContent["show_blog"] === "true" ? "bg-zinc-950" : "bg-zinc-200"
-                    }`}
+                <div className="flex items-center gap-4">
+                  <form 
+                    onSubmit={async (e) => {
+                      e.preventDefault();
+                      const formData = new FormData(e.currentTarget);
+                      try {
+                        await updateSiteContent(formData);
+                        showNotification("Visibilidade do blog atualizada!", "success");
+                        router.refresh();
+                      } catch (error: any) {
+                        showNotification("Erro ao atualizar visibilidade: " + (error.message || error), "error");
+                      }
+                    }} 
+                    className="flex items-center gap-3"
                   >
-                    <span
-                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                        initialContent["show_blog"] === "true" ? "translate-x-5" : "translate-x-0"
+                    <input type="hidden" name="show_blog" value={initialContent["show_blog"] === "true" ? "false" : "true"} />
+                    <button
+                      type="submit"
+                      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                        initialContent["show_blog"] === "true" ? "bg-zinc-950" : "bg-zinc-200"
                       }`}
-                    />
-                  </button>
-                  <span className="text-xs font-bold text-zinc-600 uppercase tracking-widest">
-                    {initialContent["show_blog"] === "true" ? "Visível" : "Oculto"}
-                  </span>
-                </form>
+                    >
+                      <span
+                        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                          initialContent["show_blog"] === "true" ? "translate-x-5" : "translate-x-0"
+                        }`}
+                      />
+                    </button>
+                    <span className="text-xs font-bold text-zinc-600 uppercase tracking-widest">
+                      {initialContent["show_blog"] === "true" ? "Visível" : "Oculto"}
+                    </span>
+                  </form>
+                </div>
               </div>
-            </div>
 
-            {/* Post Form */}
-            <div className="lg:col-span-4">
-              <div className="bg-white rounded-3xl border border-zinc-100 p-8 shadow-xl shadow-zinc-200/50 sticky top-32">
-                <h2 className="text-lg font-display italic mb-8 flex items-center text-zinc-950">
-                  <Plus size={20} className="mr-3 text-zinc-400" /> Nova História
+              {/* Post Form - Centered and elegant */}
+              <div className="bg-white rounded-3xl border border-zinc-100 p-8 md:p-12 shadow-xl shadow-zinc-200/50 max-w-4xl mx-auto">
+                <h2 className="text-xl font-display italic mb-10 flex items-center text-zinc-950">
+                  <Plus size={24} className="mr-3 text-zinc-400" /> Nova História
                 </h2>
-                <form action={addPost} className="space-y-6">
-                  <div className="space-y-2">
-                    <label className="block text-[10px] uppercase tracking-widest text-zinc-400 font-bold ml-1">Título</label>
-                    <input name="title" type="text" required className="w-full bg-zinc-50 border border-zinc-100 rounded-2xl p-4 text-sm focus:outline-none focus:ring-4 focus:ring-zinc-950/5 focus:border-zinc-950/20 transition-all" />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="block text-[10px] uppercase tracking-widest text-zinc-400 font-bold ml-1">Resumo (Pílula)</label>
-                    <textarea name="excerpt" rows={2} required className="w-full bg-zinc-50 border border-zinc-100 rounded-2xl p-4 text-sm focus:outline-none focus:ring-4 focus:ring-zinc-950/5 focus:border-zinc-950/20 transition-all resize-none" />
-                  </div>
-                  <div className="space-y-2">
+                <form key={postFormKey} onSubmit={handlePostSubmit} className="space-y-8">
+                  <div className="space-y-3">
                     <label className="block text-[10px] uppercase tracking-widest text-zinc-400 font-bold ml-1">Imagem de Capa</label>
-                    <div className="space-y-4">
-                      <div className="relative group">
-                        <input 
-                          type="file" 
-                          accept="image/*"
-                          onChange={async (e) => {
-                            const file = e.target.files?.[0];
-                            if (!file) return;
-                            
-                            setIsUploading(true);
-                            try {
-                              const formData = new FormData();
-                              formData.append("file", file);
-                              const result = await uploadImage(formData);
-                              const urlInput = document.querySelector('input[name="image"]') as HTMLInputElement;
-                              if (urlInput) urlInput.value = result.url;
-                            } catch (error) {
-                              alert("Erro no upload.");
-                            } finally {
-                              setIsUploading(false);
-                            }
-                          }}
-                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" 
-                        />
-                        <div className="w-full bg-zinc-50 border-2 border-dashed border-zinc-200 rounded-2xl p-6 flex flex-col items-center justify-center gap-2 transition-all group-hover:border-zinc-950/20 group-hover:bg-zinc-100/50">
-                          {isUploading ? (
-                            <Loader2 size={20} className="text-zinc-400 animate-spin" />
-                          ) : (
-                            <Upload size={20} className="text-zinc-300" />
-                          )}
-                          <p className="text-[10px] uppercase tracking-widest text-zinc-400 font-bold">Upload Cloudinary</p>
+                    <input type="hidden" name="image" value={uploadedBlogUrl} required />
+                    
+                    <div className="relative group w-full">
+                      {uploadedBlogUrl ? (
+                        <div className="relative w-full aspect-[16/9] md:aspect-[21/9] bg-zinc-50 border border-zinc-100 rounded-2xl overflow-hidden shadow-sm">
+                          <img src={uploadedBlogUrl} alt="Preview da Capa" className="w-full h-full object-cover" />
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center gap-3">
+                            <button
+                              type="button"
+                              onClick={() => setUploadedBlogUrl("")}
+                              className="bg-white/90 hover:bg-white text-red-600 font-bold text-[10px] uppercase tracking-wider px-4 py-2 rounded-xl flex items-center gap-2 transition-all shadow-lg pointer-events-auto"
+                            >
+                              <Trash2 size={12} /> Remover e trocar imagem
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                      <input name="image" type="url" placeholder="URL da Capa" className="w-full bg-zinc-50 border border-zinc-100 rounded-2xl p-4 text-sm focus:outline-none focus:ring-4 focus:ring-zinc-950/5 focus:border-zinc-950/20 transition-all" />
+                      ) : (
+                        <div className="relative">
+                          <input 
+                            type="file" 
+                            accept="image/*"
+                            onChange={async (e) => {
+                              const file = e.target.files?.[0];
+                              if (!file) return;
+                              
+                              if (file.size > 40 * 1024 * 1024) {
+                                showNotification("A imagem não pode ser maior que 40MB.", "error");
+                                return;
+                              }
+                              
+                              setIsUploadingBlog(true);
+                              try {
+                                const formData = new FormData();
+                                formData.append("file", file);
+                                const result = await uploadImageClient(formData);
+                                if (result.error) {
+                                  showNotification("Erro no upload: " + result.error, "error");
+                                } else if (result.url) {
+                                  setUploadedBlogUrl(result.url);
+                                } else {
+                                  showNotification("Erro inesperado no upload.", "error");
+                                }
+                              } catch (error: any) {
+                                showNotification("Erro no upload: " + (error.message || error), "error");
+                              } finally {
+                                const setIsUploadingBlog_val = false; // keep clean
+                                setIsUploadingBlog(false);
+                              }
+                            }}
+                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" 
+                          />
+                          <div className="w-full min-h-[200px] bg-zinc-50 border-2 border-dashed border-zinc-200 rounded-2xl p-8 flex flex-col items-center justify-center gap-3 transition-all group-hover:border-zinc-950/20 group-hover:bg-zinc-100/50">
+                            {isUploadingBlog ? (
+                              <Loader2 size={28} className="text-zinc-400 animate-spin" />
+                            ) : (
+                              <Upload size={28} className="text-zinc-300" />
+                            )}
+                            <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-400 font-bold text-center">
+                              {isUploadingBlog ? "Enviando imagem..." : "Arraste ou clique para fazer upload da capa"}
+                            </p>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="space-y-2">
+                      <label className="block text-[10px] uppercase tracking-widest text-zinc-400 font-bold ml-1">Título</label>
+                      <input name="title" type="text" required className="w-full bg-zinc-50 border border-zinc-100 rounded-2xl p-4 text-sm focus:outline-none focus:ring-4 focus:ring-zinc-950/5 focus:border-zinc-950/20 transition-all" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="block text-[10px] uppercase tracking-widest text-zinc-400 font-bold ml-1">Resumo (Pílula)</label>
+                      <textarea name="excerpt" rows={2} required className="w-full bg-zinc-50 border border-zinc-100 rounded-2xl p-4 text-sm focus:outline-none focus:ring-4 focus:ring-zinc-950/5 focus:border-zinc-950/20 transition-all resize-none" />
+                    </div>
+                  </div>
+
                   <div className="space-y-2">
                     <label className="block text-[10px] uppercase tracking-widest text-zinc-400 font-bold ml-1">Conteúdo Narrativo</label>
-                    <textarea name="content" rows={5} required className="w-full bg-zinc-50 border border-zinc-100 rounded-2xl p-4 text-sm focus:outline-none focus:ring-4 focus:ring-zinc-950/5 focus:border-zinc-950/20 transition-all resize-none" />
+                    <textarea name="content" rows={6} required className="w-full bg-zinc-50 border border-zinc-100 rounded-2xl p-4 text-sm focus:outline-none focus:ring-4 focus:ring-zinc-950/5 focus:border-zinc-950/20 transition-all" />
                   </div>
-                  <button type="submit" className="w-full bg-zinc-950 text-white rounded-2xl py-4 hover:bg-zinc-800 transition-all font-bold flex items-center justify-center">
-                    <Plus size={16} className="mr-3" />
-                    <span className="text-[10px] uppercase tracking-[0.2em]">Publicar História</span>
-                  </button>
+
+                  <div className="flex justify-end">
+                    <button 
+                      type="submit" 
+                      disabled={isSavingPost}
+                      className="w-full md:w-auto md:px-12 bg-zinc-950 text-white rounded-2xl py-4 hover:bg-zinc-800 transition-all font-bold flex items-center justify-center group disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isSavingPost ? (
+                        <Loader2 size={16} className="mr-3 animate-spin" />
+                      ) : (
+                        <Plus size={16} className="mr-3 group-hover:rotate-90 transition-transform" />
+                      )}
+                      <span className="text-[10px] uppercase tracking-[0.2em]">
+                        {isSavingPost ? "Publicando..." : "Publicar História"}
+                      </span>
+                    </button>
+                  </div>
                 </form>
               </div>
-            </div>
 
-            {/* Post List */}
-            <div className="lg:col-span-8">
-              <div className="bg-white rounded-3xl border border-zinc-100 shadow-xl shadow-zinc-200/50 overflow-hidden">
+              {/* Post List (Acervo) - Centered and elegant */}
+              <div className="max-w-5xl mx-auto bg-white rounded-3xl border border-zinc-100 shadow-xl shadow-zinc-200/50 overflow-hidden">
                 <div className="px-8 py-6 bg-zinc-50/50 border-b border-zinc-100 flex justify-between items-center">
-                  <span className="text-[10px] uppercase tracking-widest text-zinc-400 font-bold">Blog Cronológico</span>
+                  <span className="text-[10px] uppercase tracking-widest text-zinc-400 font-bold">Blog Cronológico ({initialPosts.length})</span>
+                  <div className="flex gap-2">
+                    <div className="w-2 h-2 rounded-full bg-zinc-200" />
+                    <div className="w-2 h-2 rounded-full bg-zinc-200" />
+                    <div className="w-2 h-2 rounded-full bg-zinc-200" />
+                  </div>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-left">
@@ -758,9 +1099,9 @@ export default function AdminDashboard({
                         initialPosts.map((post) => (
                           <tr key={post.id} className="hover:bg-zinc-50/30 transition-colors group">
                             <td className="p-6 w-40">
-                              <div className="aspect-video bg-zinc-100 rounded-2xl overflow-hidden relative shadow-md">
+                              <div className="aspect-video bg-zinc-100 rounded-2xl overflow-hidden relative shadow-md group-hover:scale-[1.05] transition-transform duration-500">
                                 {post.image ? (
-                                  <img src={post.image} alt="" className="absolute inset-0 w-full h-full object-cover" />
+                                  <img src={post.image} alt="" className="absolute inset-0 w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-700" />
                                 ) : (
                                   <div className="absolute inset-0 flex items-center justify-center text-[10px] uppercase tracking-widest text-zinc-300">Null</div>
                                 )}
@@ -776,9 +1117,15 @@ export default function AdminDashboard({
                             </td>
                             <td className="p-6 text-right">
                               <button 
-                                onClick={async () => {
+                               onClick={async () => {
                                   if (confirm("Deseja apagar permanentemente esta história?")) {
-                                    await deletePost(post.id);
+                                    try {
+                                      await deletePost(post.id);
+                                      showNotification("Post excluído com sucesso!", "success");
+                                      router.refresh();
+                                    } catch (err: any) {
+                                      showNotification("Erro ao excluir post: " + (err.message || err), "error");
+                                    }
                                   }
                                 }}
                                 className="w-10 h-10 rounded-xl flex items-center justify-center text-zinc-300 hover:text-red-500 hover:bg-red-50 transition-all"
@@ -793,31 +1140,499 @@ export default function AdminDashboard({
                   </table>
                 </div>
               </div>
+            </motion.div>
+          </div>
+        )}
+
+        {activeTab === "home" && (
+          <motion.div 
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="bg-white rounded-3xl border border-zinc-100 p-8 md:p-12 shadow-xl shadow-zinc-200/50 max-w-3xl mx-auto"
+          >
+            <div className="flex items-center justify-between mb-10">
+              <div>
+                <h2 className="text-xl font-display italic text-zinc-950 mb-2">Editar Seção</h2>
+                <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-400 font-bold">Página Inicial</p>
+              </div>
+              <div className="bg-zinc-50 p-3 rounded-2xl">
+                <Home size={20} className="text-zinc-400" />
+              </div>
             </div>
+
+            <form 
+              onSubmit={async (e) => {
+                e.preventDefault();
+                const formData = new FormData(e.currentTarget);
+                try {
+                  await updateSiteContent(formData);
+                  showNotification("Página Inicial atualizada com sucesso!", "success");
+                  router.refresh();
+                } catch (error: any) {
+                  showNotification("Erro ao atualizar Página Inicial: " + (error.message || error), "error");
+                }
+              }} 
+              className="space-y-8"
+            >
+              {/* Image Upload Block (Fundo Atmosférico) */}
+              <div className="space-y-3">
+                <label className="block text-[10px] uppercase tracking-widest text-zinc-400 font-bold ml-1">Fundo Atmosférico (Imagem de Fundo)</label>
+                <input type="hidden" name="home_hero_bg_url" value={uploadedHomeBgUrl} />
+                
+                <div className="relative group w-full">
+                  {uploadedHomeBgUrl ? (
+                    <div className="relative w-full aspect-[16/9] md:aspect-[21/9] bg-zinc-50 border border-zinc-100 rounded-2xl overflow-hidden shadow-sm">
+                      <img src={uploadedHomeBgUrl} alt="Preview do Fundo Atmosférico" className="w-full h-full object-cover" />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setUploadedHomeBgUrl("")}
+                          className="bg-white/90 hover:bg-white text-red-600 font-bold text-[10px] uppercase tracking-wider px-4 py-2 rounded-xl flex items-center gap-2 transition-all shadow-lg pointer-events-auto"
+                        >
+                          <Trash2 size={12} /> Remover e trocar imagem
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="relative">
+                      <input 
+                        type="file" 
+                        accept="image/*"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          
+                          if (file.size > 40 * 1024 * 1024) {
+                            showNotification("A imagem não pode ser maior que 40MB.", "error");
+                            return;
+                          }
+                          
+                          setIsUploadingHomeBg(true);
+                          try {
+                            const formData = new FormData();
+                            formData.append("file", file);
+                            const result = await uploadImageClient(formData);
+                            if (result.error) {
+                              showNotification("Erro no upload: " + result.error, "error");
+                            } else if (result.url) {
+                              setUploadedHomeBgUrl(result.url);
+                            } else {
+                              showNotification("Erro inesperado no upload.", "error");
+                            }
+                          } catch (error: any) {
+                            showNotification("Erro no upload: " + (error.message || error), "error");
+                          } finally {
+                            setIsUploadingHomeBg(false);
+                          }
+                        }}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" 
+                      />
+                      <div className="w-full min-h-[220px] bg-zinc-50 border-2 border-dashed border-zinc-200 rounded-2xl p-8 flex flex-col items-center justify-center gap-3 transition-all group-hover:border-zinc-950/20 group-hover:bg-zinc-100/50">
+                        {isUploadingHomeBg ? (
+                          <Loader2 size={28} className="text-zinc-400 animate-spin" />
+                        ) : (
+                          <Upload size={28} className="text-zinc-300" />
+                        )}
+                        <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-400 font-bold text-center">
+                          {isUploadingHomeBg ? "Enviando imagem..." : "Arraste ou clique para fazer upload da foto de fundo"}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Grid with Text Fields */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-2">
+                  <label className="block text-[10px] uppercase tracking-widest text-zinc-400 font-bold ml-1">Título Hero (Parte 1)</label>
+                  <input 
+                    name="home_hero_title_1" 
+                    type="text" 
+                    defaultValue={initialContent["home_hero_title_1"] || ""}
+                    className="w-full bg-zinc-50/50 border border-zinc-100 rounded-2xl p-4 text-sm focus:outline-none focus:ring-4 focus:ring-zinc-950/5 focus:border-zinc-950/20 transition-all placeholder:text-zinc-300" 
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="block text-[10px] uppercase tracking-widest text-zinc-400 font-bold ml-1">Título Hero (Estilizado)</label>
+                  <input 
+                    name="home_hero_title_2" 
+                    type="text" 
+                    defaultValue={initialContent["home_hero_title_2"] || ""}
+                    className="w-full bg-zinc-50/50 border border-zinc-100 rounded-2xl p-4 text-sm focus:outline-none focus:ring-4 focus:ring-zinc-950/5 focus:border-zinc-950/20 transition-all placeholder:text-zinc-300" 
+                  />
+                </div>
+
+                <div className="md:col-span-2 space-y-2">
+                  <label className="block text-[10px] uppercase tracking-widest text-zinc-400 font-bold ml-1">Subtítulo Hero</label>
+                  <input 
+                    name="home_hero_subtitle" 
+                    type="text" 
+                    defaultValue={initialContent["home_hero_subtitle"] || ""}
+                    className="w-full bg-zinc-50/50 border border-zinc-100 rounded-2xl p-4 text-sm focus:outline-none focus:ring-4 focus:ring-zinc-950/5 focus:border-zinc-950/20 transition-all placeholder:text-zinc-300" 
+                  />
+                </div>
+
+                <div className="md:col-span-2 space-y-2">
+                  <label className="block text-[10px] uppercase tracking-widest text-zinc-400 font-bold ml-1">Texto Narrativo Hero</label>
+                  <textarea 
+                    name="home_hero_main_text" 
+                    defaultValue={initialContent["home_hero_main_text"] || ""}
+                    rows={4}
+                    className="w-full bg-zinc-50/50 border border-zinc-100 rounded-2xl p-4 text-sm focus:outline-none focus:ring-4 focus:ring-zinc-950/5 focus:border-zinc-950/20 transition-all resize-none placeholder:text-zinc-300"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="block text-[10px] uppercase tracking-widest text-zinc-400 font-bold ml-1">Título Curadoria</label>
+                  <input 
+                    name="home_gallery_title" 
+                    type="text" 
+                    defaultValue={initialContent["home_gallery_title"] || ""}
+                    className="w-full bg-zinc-50/50 border border-zinc-100 rounded-2xl p-4 text-sm focus:outline-none focus:ring-4 focus:ring-zinc-950/5 focus:border-zinc-950/20 transition-all placeholder:text-zinc-300" 
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="block text-[10px] uppercase tracking-widest text-zinc-400 font-bold ml-1">Título Crônicas</label>
+                  <input 
+                    name="home_blog_title" 
+                    type="text" 
+                    defaultValue={initialContent["home_blog_title"] || ""}
+                    className="w-full bg-zinc-50/50 border border-zinc-100 rounded-2xl p-4 text-sm focus:outline-none focus:ring-4 focus:ring-zinc-950/5 focus:border-zinc-950/20 transition-all placeholder:text-zinc-300" 
+                  />
+                </div>
+              </div>
+
+              <div className="pt-4">
+                <button type="submit" className="w-full bg-zinc-950 text-white rounded-2xl py-4 hover:bg-zinc-800 hover:scale-[1.01] active:scale-[0.99] transition-all font-bold flex items-center justify-center group">
+                  <Save size={16} className="mr-3 group-hover:rotate-12 transition-transform" />
+                  <span className="text-[10px] uppercase tracking-[0.2em]">Salvar Alterações</span>
+                </button>
+              </div>
+            </form>
           </motion.div>
         )}
 
-        {activeTab === "home" && renderContentForm("Página Inicial", [
-          { label: "Título Hero (Parte 1)", key: "home_hero_title_1", type: "text" },
-          { label: "Título Hero (Estilizado)", key: "home_hero_title_2", type: "text" },
-          { label: "Subtítulo Hero", key: "home_hero_subtitle", type: "text" },
-          { label: "Texto Narrativo Hero", key: "home_hero_main_text", type: "textarea" },
-          { label: "URL Fundo Atmosférico", key: "home_hero_bg_url", type: "url" },
-          { label: "Título Curadoria", key: "home_gallery_title", type: "text" },
-          { label: "Título Crônicas", key: "home_blog_title", type: "text" },
-        ])}
+        {activeTab === "about" && (
+          <motion.div 
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="bg-white rounded-3xl border border-zinc-100 p-8 md:p-12 shadow-xl shadow-zinc-200/50 max-w-3xl mx-auto"
+          >
+            <div className="flex items-center justify-between mb-10">
+              <div>
+                <h2 className="text-xl font-display italic text-zinc-950 mb-2">Editar Seção</h2>
+                <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-400 font-bold">Sobre Mim</p>
+              </div>
+              <div className="bg-zinc-50 p-3 rounded-2xl">
+                <User size={20} className="text-zinc-400" />
+              </div>
+            </div>
 
-        {activeTab === "about" && renderContentForm("Sobre Mim", [
-          { label: "Saudação Atmosférica", key: "about_greeting", type: "text" },
-          { label: "Título Identidade", key: "about_title_normal", type: "text" },
-          { label: "Título Estilizado", key: "about_title_styled", type: "text" },
-          { label: "Manifesto / Bio", key: "about_bio", type: "textarea" },
-          { label: "Tempo de Luz (Anos)", key: "about_years", type: "text" },
-          { label: "Armas de Criação (Equipamento)", key: "about_equipment", type: "text" },
-          { label: "Base de Operações (Localização)", key: "about_address", type: "text" },
-          { label: "CTA Trajetória", key: "about_link_text", type: "text" },
-          { label: "Retrato (URL)", key: "about_photo_url", type: "url" },
-        ])}
+            <form 
+              onSubmit={async (e) => {
+                e.preventDefault();
+                const formData = new FormData(e.currentTarget);
+                try {
+                  await updateSiteContent(formData);
+                  showNotification("Seção Sobre Mim atualizada com sucesso!", "success");
+                  router.refresh();
+                } catch (error: any) {
+                  showNotification("Erro ao atualizar Seção Sobre: " + (error.message || error), "error");
+                }
+              }} 
+              className="space-y-12"
+            >
+              
+              {/* === PARTE 1: PÁGINA INICIAL === */}
+              <div className="space-y-8 pb-8 border-b border-zinc-100">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs bg-zinc-950 text-white w-5 h-5 rounded-full flex items-center justify-center font-bold text-[10px]">1</span>
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-zinc-800">Sobre na Página Inicial (Home)</h3>
+                </div>
+
+                {/* Home Image Upload Block */}
+                <div className="space-y-3">
+                  <label className="block text-[10px] uppercase tracking-widest text-zinc-400 font-bold ml-1">Retrato na Página Inicial (Formato Circular)</label>
+                  <input type="hidden" name="about_home_photo_url" value={uploadedAboutHomePhotoUrl} />
+                  
+                  <div className="relative group w-full">
+                    {uploadedAboutHomePhotoUrl ? (
+                      <div className="relative w-full aspect-square max-w-[200px] mx-auto bg-zinc-50 border border-zinc-100 rounded-full overflow-hidden shadow-sm">
+                        <img src={uploadedAboutHomePhotoUrl} alt="Preview do Retrato Home" className="w-full h-full object-cover" />
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center gap-3">
+                          <button
+                            type="button"
+                            onClick={() => setUploadedAboutHomePhotoUrl("")}
+                            className="bg-white/90 hover:bg-white text-red-600 font-bold text-[10px] uppercase tracking-wider px-4 py-2 rounded-xl flex items-center gap-2 transition-all shadow-lg pointer-events-auto"
+                          >
+                            <Trash2 size={12} /> Remover
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="relative max-w-[200px] mx-auto">
+                        <input 
+                          type="file" 
+                          accept="image/*"
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            
+                            if (file.size > 40 * 1024 * 1024) {
+                              showNotification("A imagem não pode ser maior que 40MB.", "error");
+                              return;
+                            }
+                            
+                            setIsUploadingAboutHome(true);
+                            try {
+                              const formData = new FormData();
+                              formData.append("file", file);
+                              const result = await uploadImageClient(formData);
+                              if (result.error) {
+                                showNotification("Erro no upload: " + result.error, "error");
+                              } else if (result.url) {
+                                setUploadedAboutHomePhotoUrl(result.url);
+                              } else {
+                                showNotification("Erro inesperado no upload.", "error");
+                              }
+                            } catch (error: any) {
+                              showNotification("Erro no upload: " + (error.message || error), "error");
+                            } finally {
+                              setIsUploadingAboutHome(false);
+                            }
+                          }}
+                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" 
+                        />
+                        <div className="w-full aspect-square bg-zinc-50 border-2 border-dashed border-zinc-200 rounded-full p-8 flex flex-col items-center justify-center gap-2 transition-all group-hover:border-zinc-950/20 group-hover:bg-zinc-100/50">
+                          {isUploadingAboutHome ? (
+                            <Loader2 size={24} className="text-zinc-400 animate-spin" />
+                          ) : (
+                            <Upload size={24} className="text-zinc-300" />
+                          )}
+                          <p className="text-[9px] uppercase tracking-wider text-zinc-400 font-bold text-center">
+                            {isUploadingAboutHome ? "Enviando..." : "Enviar Foto"}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label className="block text-[10px] uppercase tracking-widest text-zinc-400 font-bold ml-1">Saudação Atmosférica</label>
+                    <input 
+                      name="about_home_greeting" 
+                      type="text" 
+                      defaultValue={initialContent["about_home_greeting"] || initialContent["about_greeting"] || ""}
+                      className="w-full bg-zinc-50/50 border border-zinc-100 rounded-2xl p-4 text-sm focus:outline-none focus:ring-4 focus:ring-zinc-950/5 focus:border-zinc-950/20 transition-all placeholder:text-zinc-300" 
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="block text-[10px] uppercase tracking-widest text-zinc-400 font-bold ml-1">CTA Botão Trajetória</label>
+                    <input 
+                      name="about_home_link_text" 
+                      type="text" 
+                      defaultValue={initialContent["about_home_link_text"] || initialContent["about_link_text"] || ""}
+                      className="w-full bg-zinc-50/50 border border-zinc-100 rounded-2xl p-4 text-sm focus:outline-none focus:ring-4 focus:ring-zinc-950/5 focus:border-zinc-950/20 transition-all placeholder:text-zinc-300" 
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="block text-[10px] uppercase tracking-widest text-zinc-400 font-bold ml-1">Título Identidade (Texto Normal)</label>
+                    <input 
+                      name="about_home_title_normal" 
+                      type="text" 
+                      defaultValue={initialContent["about_home_title_normal"] || initialContent["about_title_normal"] || ""}
+                      className="w-full bg-zinc-50/50 border border-zinc-100 rounded-2xl p-4 text-sm focus:outline-none focus:ring-4 focus:ring-zinc-950/5 focus:border-zinc-950/20 transition-all placeholder:text-zinc-300" 
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="block text-[10px] uppercase tracking-widest text-zinc-400 font-bold ml-1">Título Identidade (Texto Estilizado)</label>
+                    <input 
+                      name="about_home_title_styled" 
+                      type="text" 
+                      defaultValue={initialContent["about_home_title_styled"] || initialContent["about_title_styled"] || ""}
+                      className="w-full bg-zinc-50/50 border border-zinc-100 rounded-2xl p-4 text-sm focus:outline-none focus:ring-4 focus:ring-zinc-950/5 focus:border-zinc-950/20 transition-all placeholder:text-zinc-300" 
+                    />
+                  </div>
+
+                  <div className="md:col-span-2 space-y-2">
+                    <label className="block text-[10px] uppercase tracking-widest text-zinc-400 font-bold ml-1">Manifesto / Bio Curta (Homepage)</label>
+                    <textarea 
+                      name="about_home_bio" 
+                      defaultValue={initialContent["about_home_bio"] || initialContent["about_bio"] || ""}
+                      rows={3}
+                      className="w-full bg-zinc-50/50 border border-zinc-100 rounded-2xl p-4 text-sm focus:outline-none focus:ring-4 focus:ring-zinc-950/5 focus:border-zinc-950/20 transition-all resize-none placeholder:text-zinc-300"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* === PARTE 2: PÁGINA COMPLETA === */}
+              <div className="space-y-8">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs bg-zinc-950 text-white w-5 h-5 rounded-full flex items-center justify-center font-bold text-[10px]">2</span>
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-zinc-800">Sobre na Página Completa (/about)</h3>
+                </div>
+
+                {/* Page Image Upload Block */}
+                <div className="space-y-3">
+                  <label className="block text-[10px] uppercase tracking-widest text-zinc-400 font-bold ml-1">Retrato Principal na Biografia Completa (Formato Retangular)</label>
+                  <input type="hidden" name="about_page_photo_url" value={uploadedAboutPagePhotoUrl} />
+                  
+                  <div className="relative group w-full">
+                    {uploadedAboutPagePhotoUrl ? (
+                      <div className="relative w-full aspect-[3/4] max-w-[240px] mx-auto bg-zinc-50 border border-zinc-100 rounded-2xl overflow-hidden shadow-sm">
+                        <img src={uploadedAboutPagePhotoUrl} alt="Preview do Retrato Page" className="w-full h-full object-cover" />
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center gap-3">
+                          <button
+                            type="button"
+                            onClick={() => setUploadedAboutPagePhotoUrl("")}
+                            className="bg-white/90 hover:bg-white text-red-600 font-bold text-[10px] uppercase tracking-wider px-4 py-2 rounded-xl flex items-center gap-2 transition-all shadow-lg pointer-events-auto"
+                          >
+                            <Trash2 size={12} /> Remover
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="relative max-w-[240px] mx-auto">
+                        <input 
+                          type="file" 
+                          accept="image/*"
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            
+                            if (file.size > 40 * 1024 * 1024) {
+                              showNotification("A imagem não pode ser maior que 40MB.", "error");
+                              return;
+                            }
+                            
+                            setIsUploadingAboutPage(true);
+                            try {
+                              const formData = new FormData();
+                              formData.append("file", file);
+                              const result = await uploadImageClient(formData);
+                              if (result.error) {
+                                showNotification("Erro no upload: " + result.error, "error");
+                              } else if (result.url) {
+                                setUploadedAboutPagePhotoUrl(result.url);
+                              } else {
+                                showNotification("Erro inesperado no upload.", "error");
+                              }
+                            } catch (error: any) {
+                              showNotification("Erro no upload: " + (error.message || error), "error");
+                            } finally {
+                              setIsUploadingAboutPage(false);
+                            }
+                          }}
+                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" 
+                        />
+                        <div className="w-full aspect-[3/4] bg-zinc-50 border-2 border-dashed border-zinc-200 rounded-2xl p-8 flex flex-col items-center justify-center gap-2 transition-all group-hover:border-zinc-950/20 group-hover:bg-zinc-100/50">
+                          {isUploadingAboutPage ? (
+                            <Loader2 size={24} className="text-zinc-400 animate-spin" />
+                          ) : (
+                            <Upload size={24} className="text-zinc-300" />
+                          )}
+                          <p className="text-[9px] uppercase tracking-wider text-zinc-400 font-bold text-center">
+                            {isUploadingAboutPage ? "Enviando..." : "Enviar Foto Retrato"}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label className="block text-[10px] uppercase tracking-widest text-zinc-400 font-bold ml-1">Título Grande da Página (e.g. &quot;apaixonado por café&quot;)</label>
+                    <input 
+                      name="about_page_title" 
+                      type="text" 
+                      defaultValue={initialContent["about_page_title"] || `Sobre ${initialContent["about_title_styled"] || "Diogo Alves"}`}
+                      className="w-full bg-zinc-50/50 border border-zinc-100 rounded-2xl p-4 text-sm focus:outline-none focus:ring-4 focus:ring-zinc-950/5 focus:border-zinc-950/20 transition-all placeholder:text-zinc-300" 
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="block text-[10px] uppercase tracking-widest text-zinc-400 font-bold ml-1">Subtítulo Identidade / Visão</label>
+                    <input 
+                      name="about_page_subtitle" 
+                      type="text" 
+                      defaultValue={initialContent["about_page_subtitle"] || initialContent["about_title_normal"] || "A busca pelo invisível."}
+                      className="w-full bg-zinc-50/50 border border-zinc-100 rounded-2xl p-4 text-sm focus:outline-none focus:ring-4 focus:ring-zinc-950/5 focus:border-zinc-950/20 transition-all placeholder:text-zinc-300" 
+                    />
+                  </div>
+
+                  <div className="space-y-2 col-span-1 md:col-span-2">
+                    <label className="block text-[10px] uppercase tracking-widest text-zinc-400 font-bold ml-1">Tempo de Luz (e.g. &quot;10+&quot; Anos)</label>
+                    <input 
+                      name="about_page_years" 
+                      type="text" 
+                      defaultValue={initialContent["about_page_years"] || initialContent["about_years"] || "10+"}
+                      className="w-full bg-zinc-50/50 border border-zinc-100 rounded-2xl p-4 text-sm focus:outline-none focus:ring-4 focus:ring-zinc-950/5 focus:border-zinc-950/20 transition-all placeholder:text-zinc-300" 
+                    />
+                  </div>
+
+                  <div className="md:col-span-2 space-y-2">
+                    <label className="block text-[10px] uppercase tracking-widest text-zinc-400 font-bold ml-1">Biografia Completa / Manifesto Narrativo</label>
+                    <textarea 
+                      name="about_page_bio" 
+                      defaultValue={initialContent["about_page_bio"] || initialContent["about_bio"] || ""}
+                      rows={6}
+                      className="w-full bg-zinc-50/50 border border-zinc-100 rounded-2xl p-4 text-sm focus:outline-none focus:ring-4 focus:ring-zinc-950/5 focus:border-zinc-950/20 transition-all resize-none placeholder:text-zinc-300"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="block text-[10px] uppercase tracking-widest text-zinc-400 font-bold ml-1">Equipamentos Utilizados (Linhas Separadas)</label>
+                    <textarea 
+                      name="about_page_equipment" 
+                      defaultValue={initialContent["about_page_equipment"] || initialContent["about_equipment"] || ""}
+                      rows={3}
+                      className="w-full bg-zinc-50/50 border border-zinc-100 rounded-2xl p-4 text-sm focus:outline-none focus:ring-4 focus:ring-zinc-950/5 focus:border-zinc-950/20 transition-all resize-none placeholder:text-zinc-300" 
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="block text-[10px] uppercase tracking-widest text-zinc-400 font-bold ml-1">Localização de Base (Linhas Separadas)</label>
+                    <textarea 
+                      name="about_page_address" 
+                      defaultValue={initialContent["about_page_address"] || initialContent["about_address"] || ""}
+                      rows={3}
+                      className="w-full bg-zinc-50/50 border border-zinc-100 rounded-2xl p-4 text-sm focus:outline-none focus:ring-4 focus:ring-zinc-950/5 focus:border-zinc-950/20 transition-all resize-none placeholder:text-zinc-300" 
+                    />
+                  </div>
+
+                  <div className="md:col-span-2 space-y-2">
+                    <label className="block text-[10px] uppercase tracking-widest text-zinc-400 font-bold ml-1">Reconhecimento / Prêmios (Uma linha para cada prêmio)</label>
+                    <textarea 
+                      name="about_page_awards" 
+                      defaultValue={initialContent["about_page_awards"] || "• National Geographic Photo of the Year (Finalist 2021)\n• International Photography Awards (Gold - Nature 2022)\n• Exhibition \"Urban Silence\" - Tokyo, Japan"}
+                      rows={4}
+                      className="w-full bg-zinc-50/50 border border-zinc-100 rounded-2xl p-4 text-sm focus:outline-none focus:ring-4 focus:ring-zinc-950/5 focus:border-zinc-950/20 transition-all resize-none placeholder:text-zinc-300"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-6">
+                <button type="submit" className="w-full bg-zinc-950 text-white rounded-2xl py-4 hover:bg-zinc-800 hover:scale-[1.01] active:scale-[0.99] transition-all font-bold flex items-center justify-center group">
+                  <Save size={16} className="mr-3 group-hover:rotate-12 transition-transform" />
+                  <span className="text-[10px] uppercase tracking-[0.2em]">Salvar Tudo</span>
+                </button>
+              </div>
+            </form>
+          </motion.div>
+        )}
 
         {activeTab === "contact" && renderContentForm("Contato", [
           { label: "Título Chamada", key: "contact_title_normal", type: "text" },
@@ -858,7 +1673,21 @@ export default function AdminDashboard({
                 <h2 className="text-lg font-display italic mb-8 flex items-center text-zinc-950">
                   <User size={20} className="mr-3 text-zinc-400" /> Novo Usuário
                 </h2>
-                <form action={addUser} className="space-y-6">
+                <form 
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    const formData = new FormData(e.currentTarget);
+                    try {
+                      await addUser(formData);
+                      showNotification("Usuário criado com sucesso!", "success");
+                      e.currentTarget.reset();
+                      router.refresh();
+                    } catch (error: any) {
+                      showNotification("Erro ao criar usuário: " + (error.message || error), "error");
+                    }
+                  }} 
+                  className="space-y-6"
+                >
                   <div className="space-y-2">
                     <label className="block text-[10px] uppercase tracking-widest text-zinc-400 font-bold ml-1">Nome Completo</label>
                     <input name="name" type="text" required className="w-full bg-zinc-50 border border-zinc-100 rounded-2xl p-4 text-sm focus:outline-none focus:ring-4 focus:ring-zinc-950/5 focus:border-zinc-950/20 transition-all" />
@@ -922,7 +1751,13 @@ export default function AdminDashboard({
                               <button 
                                 onClick={async () => {
                                   if (confirm("Remover este usuário?")) {
-                                    await deleteUser(user.id);
+                                    try {
+                                      await deleteUser(user.id);
+                                      showNotification("Usuário removido com sucesso!", "success");
+                                      router.refresh();
+                                    } catch (err: any) {
+                                      showNotification("Erro ao remover usuário: " + (err.message || err), "error");
+                                    }
                                   }
                                 }}
                                 className="w-10 h-10 rounded-xl flex items-center justify-center text-zinc-200 hover:text-red-500 transition-all"
@@ -939,6 +1774,87 @@ export default function AdminDashboard({
               </div>
             </div>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {toast && (
+        <div className={`fixed bottom-6 right-6 z-50 flex items-center gap-3 px-5 py-4 rounded-2xl shadow-xl border transition-all duration-300 ${
+          toast.type === "success" 
+            ? "bg-zinc-950 text-white border-zinc-800" 
+            : toast.type === "error" 
+            ? "bg-red-600 text-white border-red-500" 
+            : "bg-zinc-100 text-zinc-900 border-zinc-200"
+        }`}>
+          {toast.type === "success" && <CheckCircle className="text-green-400 shrink-0" size={18} />}
+          {toast.type === "error" && <AlertCircle className="text-white shrink-0" size={18} />}
+          {toast.type === "info" && <Info className="text-zinc-500 shrink-0" size={18} />}
+          <span className="text-xs font-semibold tracking-wide">{toast.message}</span>
+          <button onClick={() => setToast(null)} className="ml-2 hover:opacity-75 transition-opacity text-white/60 cursor-pointer">
+            <X size={14} />
+          </button>
+        </div>
+      )}
+
+      {/* Modal de Confirmação de Exclusão */}
+      <AnimatePresence>
+        {photoToDelete && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            {/* Backdrop */}
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => !isDeletingPhoto && setPhotoToDelete(null)}
+              className="absolute inset-0 bg-zinc-950/40 backdrop-blur-sm"
+            />
+            
+            {/* Modal Content */}
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0, y: 10 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 10 }}
+              transition={{ type: "spring", duration: 0.4 }}
+              className="bg-white rounded-3xl border border-zinc-100 p-8 shadow-2xl max-w-md w-full relative z-10 overflow-hidden"
+            >
+              <div className="flex flex-col items-center text-center space-y-4">
+                <div className="w-16 h-16 rounded-full bg-red-50 flex items-center justify-center text-red-500 mb-2">
+                  <Trash2 size={28} />
+                </div>
+                
+                <h3 className="text-lg font-display italic text-zinc-950">Confirmar Exclusão</h3>
+                
+                <p className="text-sm text-zinc-500 leading-relaxed">
+                  Tem certeza de que deseja excluir a obra <strong className="text-zinc-950 font-sans">&ldquo;{photoToDelete.title}&rdquo;</strong>? Esta ação é irreversível e o arquivo também será apagado permanentemente da nuvem (Canarycloud/Cloudinary).
+                </p>
+                
+                <div className="flex flex-col sm:flex-row gap-3 w-full pt-4">
+                  <button
+                    type="button"
+                    disabled={isDeletingPhoto}
+                    onClick={() => setPhotoToDelete(null)}
+                    className="flex-1 border border-zinc-200 hover:bg-zinc-50 rounded-2xl py-3.5 text-xs uppercase tracking-widest font-bold text-zinc-400 hover:text-zinc-950 transition-all cursor-pointer disabled:opacity-50"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isDeletingPhoto}
+                    onClick={handleDeleteConfirm}
+                    className="flex-1 bg-red-600 hover:bg-red-700 text-white rounded-2xl py-3.5 text-xs uppercase tracking-widest font-bold transition-all cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
+                  >
+                    {isDeletingPhoto ? (
+                      <>
+                        <Loader2 size={14} className="animate-spin" />
+                        <span>Excluindo...</span>
+                      </>
+                    ) : (
+                      <span>Excluir</span>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
     </div>

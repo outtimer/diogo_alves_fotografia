@@ -8,35 +8,57 @@ import bcrypt from "bcryptjs";
 
 const SESSION_COOKIE = "aura_admin_session";
 
-import { getCloudinary } from "@/lib/cloudinary";
+import { getCloudinary, deleteFromCloudinary } from "@/lib/cloudinary";
 
-export async function uploadImage(formData: FormData) {
-  if (!(await isAuthenticated())) throw new Error("Não autorizado");
+export async function uploadImage(formData: FormData): Promise<{ url?: string; error?: string }> {
+  if (!(await isAuthenticated())) {
+    return { error: "Não autorizado. Por favor, faça login novamente." };
+  }
   
   const file = formData.get("file") as File;
-  if (!file) throw new Error("Nenhum arquivo enviado");
-
-  const cloudinary = getCloudinary();
-  if (!cloudinary) {
-    throw new Error("Cloudinary não configurado. Adicione as chaves no painel de segredos.");
+  if (!file) {
+    return { error: "Nenhum arquivo enviado." };
   }
 
-  const bytes = await file.arrayBuffer();
-  const buffer = Buffer.from(bytes);
+  try {
+    const bytes = await file.arrayBuffer();
+    const buffer = Buffer.from(bytes);
 
-  return new Promise<{ url: string }>((resolve, reject) => {
-    cloudinary.uploader.upload_stream(
-      { resource_type: "auto", folder: "portfolio" },
-      (error, result) => {
-        if (error) {
-          console.error("Erro no Cloudinary:", error);
-          reject(error);
-        } else {
-          resolve({ url: result!.secure_url });
+    const cloudinary = getCloudinary();
+    if (!cloudinary) {
+      console.log("Cloudinary não configurado. Utilizando fallback Base64.");
+      const mimeType = file.type || "image/jpeg";
+      const base64 = buffer.toString("base64");
+      return { url: `data:${mimeType};base64,${base64}` };
+    }
+
+    return await new Promise<{ url?: string; error?: string }>((resolve) => {
+      cloudinary.uploader.upload_stream(
+        { resource_type: "auto", folder: "portfolio" },
+        (error, result) => {
+          if (error) {
+            console.error("Erro no Cloudinary, usando fallback Base64:", error);
+            const mimeType = file.type || "image/jpeg";
+            const base64 = buffer.toString("base64");
+            resolve({ url: `data:${mimeType};base64,${base64}` });
+          } else {
+            resolve({ url: result!.secure_url });
+          }
         }
-      }
-    ).end(buffer);
-  });
+      ).end(buffer);
+    });
+  } catch (err: any) {
+    console.error("Erro geral no upload para Cloudinary, usando fallback Base64:", err);
+    try {
+      const bytes = await file.arrayBuffer();
+      const buffer = Buffer.from(bytes);
+      const mimeType = file.type || "image/jpeg";
+      const base64 = buffer.toString("base64");
+      return { url: `data:${mimeType};base64,${base64}` };
+    } catch (fallbackErr: any) {
+      return { error: err.message || "Erro desconhecido durante o upload." };
+    }
+  }
 }
 
 // Auxiliar para pegar o usuário logado
@@ -107,12 +129,18 @@ export async function addPhoto(formData: FormData) {
   if (!(await isAuthenticated())) throw new Error("Não autorizado");
   const url = formData.get("url") as string;
   const title = formData.get("title") as string;
+  const description = formData.get("description") as string;
   const location = formData.get("location") as string;
   const categoryId = formData.get("category") as string; // Agora recebemos o ID ou o nome
-  const lat = formData.get("lat") ? parseFloat(formData.get("lat") as string) : null;
-  const lng = formData.get("lng") ? parseFloat(formData.get("lng") as string) : null;
+  
+  const latStr = formData.get("lat") as string;
+  const lngStr = formData.get("lng") as string;
+  const lat = latStr && !isNaN(parseFloat(latStr)) ? parseFloat(latStr) : null;
+  const lng = lngStr && !isNaN(parseFloat(lngStr)) ? parseFloat(lngStr) : null;
 
-  if (!url || !title || !categoryId) return;
+  if (!url) return { error: "A imagem é obrigatória" };
+  if (!title) return { error: "O título é obrigatório" };
+  if (!categoryId) return { error: "A categoria é obrigatória" };
 
   try {
     // Tentar encontrar a categoria pelo ID primeiro, se falhar tenta pelo nome
@@ -130,7 +158,8 @@ export async function addPhoto(formData: FormData) {
       data: { 
         url, 
         title, 
-        location, 
+        description: description || null,
+        location: location || null, 
         category: categoryRecord?.name || categoryId, 
         lat, 
         lng,
@@ -139,19 +168,81 @@ export async function addPhoto(formData: FormData) {
     });
     revalidatePath("/");
     revalidatePath("/admin");
-  } catch (error) {
+    return { success: true };
+  } catch (error: any) {
     console.error("Erro ao salvar no banco de dados", error);
+    return { error: error.message || "Erro ao salvar no banco de dados" };
+  }
+}
+
+export async function updatePhoto(formData: FormData) {
+  if (!(await isAuthenticated())) throw new Error("Não autorizado");
+  const id = formData.get("id") as string;
+  const title = formData.get("title") as string;
+  const description = formData.get("description") as string;
+  const location = formData.get("location") as string;
+  const categoryId = formData.get("category") as string;
+
+  const latStr = formData.get("lat") as string;
+  const lngStr = formData.get("lng") as string;
+  const lat = latStr && !isNaN(parseFloat(latStr)) ? parseFloat(latStr) : null;
+  const lng = lngStr && !isNaN(parseFloat(lngStr)) ? parseFloat(lngStr) : null;
+
+  if (!id) return { error: "O ID da foto é obrigatório" };
+  if (!title) return { error: "O título é obrigatório" };
+  if (!categoryId) return { error: "A categoria é obrigatória" };
+
+  try {
+    const categoryRecord = await prisma.category.findFirst({
+      where: { 
+        OR: [
+          { id: categoryId },
+          { name: categoryId }
+        ]
+      }
+    });
+
+    await prisma.photo.update({
+      where: { id },
+      data: { 
+        title, 
+        description: description || null,
+        location: location || null, 
+        category: categoryRecord?.name || categoryId, 
+        lat, 
+        lng,
+        categoryId: categoryRecord?.id || null
+      },
+    });
+    revalidatePath("/");
+    revalidatePath("/admin");
+    return { success: true };
+  } catch (error: any) {
+    console.error("Erro ao atualizar foto", error);
+    return { error: error.message || "Erro ao atualizar foto" };
   }
 }
 
 export async function deletePhoto(id: string) {
   if (!(await isAuthenticated())) throw new Error("Não autorizado");
   try {
+    const photo = await prisma.photo.findUnique({ where: { id } });
+    if (!photo) {
+      return { error: "Obra não encontrada" };
+    }
+    
+    let deletedFromCloud = false;
+    if (photo.url) {
+      deletedFromCloud = await deleteFromCloudinary(photo.url);
+    }
+    
     await prisma.photo.delete({ where: { id } });
     revalidatePath("/");
     revalidatePath("/admin");
-  } catch (error) {
+    return { success: true, deletedFromCloud };
+  } catch (error: any) {
     console.error("Erro ao deletar foto", error);
+    return { error: error.message || "Erro ao deletar foto" };
   }
 }
 
@@ -184,7 +275,10 @@ export async function addPost(formData: FormData) {
   const content = formData.get("content") as string;
   const image = formData.get("image") as string;
 
-  if (!title || !excerpt || !content) return;
+  if (!image) return { error: "A imagem de capa é obrigatória" };
+  if (!title) return { error: "O título é obrigatório" };
+  if (!excerpt) return { error: "O resumo é obrigatório" };
+  if (!content) return { error: "O conteúdo é obrigatório" };
 
   try {
     await prisma.post.create({
@@ -192,14 +286,20 @@ export async function addPost(formData: FormData) {
     });
     revalidatePath("/");
     revalidatePath("/admin");
-  } catch (error) {
+    return { success: true };
+  } catch (error: any) {
     console.error("Erro ao salvar post no banco de dados", error);
+    return { error: error.message || "Erro ao salvar post no banco de dados" };
   }
 }
 
 export async function deletePost(id: string) {
   if (!(await isAuthenticated())) throw new Error("Não autorizado");
   try {
+    const post = await prisma.post.findUnique({ where: { id } });
+    if (post?.image) {
+      await deleteFromCloudinary(post.image);
+    }
     await prisma.post.delete({ where: { id } });
     revalidatePath("/");
     revalidatePath("/admin");
@@ -224,10 +324,10 @@ export async function getSiteContent() {
     }, {} as Record<string, string>);
 
     if (footerConfig) {
-      content["footer_cta_title"] = footerConfig.ctaTitle || "";
-      content["footer_cta_desc"] = footerConfig.ctaDesc || "";
-      content["footer_copyright"] = footerConfig.copyright || "";
-      content["footer_tagline"] = footerConfig.tagline || "";
+      content["footer_cta_title"] = footerConfig.ctaTitle || "Interessado em apoiar uma expedição?";
+      content["footer_cta_desc"] = footerConfig.ctaDesc || "Estou sempre em busca de parceiros para patrocinar novas jornadas.";
+      content["footer_copyright"] = footerConfig.copyright || "Diogo Alves. Todos os direitos reservados.";
+      content["footer_tagline"] = footerConfig.tagline || "SÃO PAULO | TOKYO | ZURICH";
       content["social_instagram"] = footerConfig.socialInstagram || "";
       content["social_twitter"] = footerConfig.socialTwitter || "";
       content["social_facebook"] = footerConfig.socialFacebook || "";
@@ -238,37 +338,101 @@ export async function getSiteContent() {
       content["social_pinterest"] = footerConfig.socialPinterest || "";
       content["social_vero"] = footerConfig.socialVero || "";
       content["social_unsplash"] = footerConfig.socialUnsplash || "";
+    } else {
+      content["footer_cta_title"] = "Interessado em apoiar uma expedição?";
+      content["footer_cta_desc"] = "Estou sempre em busca de parceiros para patrocinar novas jornadas.";
+      content["footer_copyright"] = "Diogo Alves. Todos os direitos reservados.";
+      content["footer_tagline"] = "SÃO PAULO | TOKYO | ZURICH";
     }
 
     if (homeConfig) {
-      content["home_title_1"] = homeConfig.title1 || "";
-      content["home_title_2"] = homeConfig.title2 || "";
-      content["home_subtitle"] = homeConfig.subtitle || "";
-      content["home_hero_bg_url"] = homeConfig.heroBgUrl || "";
-      content["home_hero_main_text"] = homeConfig.mainText || "";
-      content["home_gallery_title"] = homeConfig.galleryTitle || "";
-      content["home_blog_title"] = homeConfig.blogTitle || "";
+      content["home_hero_title_1"] = homeConfig.title1 || "Diogo";
+      content["home_hero_title_2"] = homeConfig.title2 || "Alves";
+      content["home_hero_subtitle"] = homeConfig.subtitle || "Fotógrafo de Paisagens & Vida";
+      content["home_hero_bg_url"] = homeConfig.heroBgUrl || "https://images.unsplash.com/photo-1470770841072-f978cf4d019e?auto=format&fit=crop&q=80&w=2000";
+      content["home_hero_main_text"] = homeConfig.mainText || "Capturando a essência do cotidiano em luz e cor.";
+      content["home_gallery_title"] = homeConfig.galleryTitle || "Galeria em Foco";
+      content["home_blog_title"] = homeConfig.blogTitle || "Últimas Histórias";
+    } else {
+      content["home_hero_title_1"] = "Diogo";
+      content["home_hero_title_2"] = "Alves";
+      content["home_hero_subtitle"] = "Fotógrafo de Paisagens & Vida";
+      content["home_hero_bg_url"] = "https://images.unsplash.com/photo-1470770841072-f978cf4d019e?auto=format&fit=crop&q=80&w=2000";
+      content["home_hero_main_text"] = "Capturando a essência do cotidiano em luz e cor.";
+      content["home_gallery_title"] = "Galeria em Foco";
+      content["home_blog_title"] = "Últimas Histórias";
     }
 
     if (aboutConfig) {
-      content["about_greeting"] = aboutConfig.greeting || "";
-      content["about_title_normal"] = aboutConfig.titleNormal || "";
-      content["about_title_styled"] = aboutConfig.titleStyled || "";
-      content["about_bio"] = aboutConfig.bio || "";
-      content["about_years"] = aboutConfig.years || "";
-      content["about_equipment"] = aboutConfig.equipment || "";
-      content["about_address"] = aboutConfig.address || "";
-      content["about_link_text"] = aboutConfig.linkText || "";
-      content["about_photo_url"] = aboutConfig.photoUrl || "";
+      content["about_greeting"] = aboutConfig.greeting || "Olá, eu sou o Diogo";
+      content["about_title_normal"] = aboutConfig.titleNormal || "Um curioso por natureza,";
+      content["about_title_styled"] = aboutConfig.titleStyled || "apaixonado por café";
+      content["about_bio"] = aboutConfig.bio || "Paulistano de alma, encontro paz em caminhadas matinais e na luz que banha as ruas antes da cidade acordar. Sempre com um livro ou uma câmera por perto, busco a beleza no ordinário e nas histórias que as pessoas esquecem de contar.";
+      content["about_years"] = aboutConfig.years || "10+";
+      content["about_equipment"] = aboutConfig.equipment || "Leica M11 & Sony A7R V\n35mm Fixed Lens focus";
+      content["about_address"] = aboutConfig.address || "São Paulo, Brasil\nDisponível para projetos globais";
+      content["about_link_text"] = aboutConfig.linkText || "Minha história completa";
+      content["about_photo_url"] = aboutConfig.photoUrl !== null ? aboutConfig.photoUrl : "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=800";
+
+      // Separated fields for Homepage
+      content["about_home_greeting"] = aboutConfig.homeGreeting || aboutConfig.greeting || "Olá, eu sou o Diogo";
+      content["about_home_title_normal"] = aboutConfig.homeTitleNormal || aboutConfig.titleNormal || "Um curioso por natureza,";
+      content["about_home_title_styled"] = aboutConfig.homeTitleStyled || aboutConfig.titleStyled || "apaixonado por café";
+      content["about_home_bio"] = aboutConfig.homeBio || aboutConfig.bio || "Paulistano de alma, encontro paz em caminhadas matinais e na luz que banha as ruas antes da cidade acordar. Sempre com um livro ou uma câmera por perto, busco a beleza no ordinário e nas histórias que as pessoas esquecem de contar.";
+      content["about_home_photo_url"] = aboutConfig.homePhotoUrl !== null ? aboutConfig.homePhotoUrl : (aboutConfig.photoUrl || "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=800");
+      content["about_home_link_text"] = aboutConfig.homeLinkText || aboutConfig.linkText || "Minha história completa";
+
+      // Separated fields for Full About Page
+      content["about_page_title"] = aboutConfig.pageTitle || `Sobre ${aboutConfig.titleStyled || "Diogo Alves"}`;
+      content["about_page_subtitle"] = aboutConfig.pageSubtitle || aboutConfig.titleNormal || "A busca pelo invisível.";
+      content["about_page_bio"] = aboutConfig.pageBio || "Minha jornada na fotografia começou nas ruas de São Paulo, capturando a geometria brutalista e a humanidade vibrante da metrópole. Com o tempo, meu olhar se voltou para o silêncio — das paisagens remotas da Islândia à paciência necessária para observar a vida selvagem no Quênia. \n\nAcredito que uma boa fotografia não apenas documenta um moment, mas traduz o sentimento que ele evoca. Meu trabalho é minimalista por escolha, focado na pureza da colagem e na honestidade da luz.";
+      content["about_page_photo_url"] = aboutConfig.pagePhotoUrl !== null ? aboutConfig.pagePhotoUrl : (aboutConfig.photoUrl || "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=1000");
+      content["about_page_years"] = aboutConfig.pageYears || aboutConfig.years || "10+";
+      content["about_page_equipment"] = aboutConfig.pageEquipment || aboutConfig.equipment || "Leica M11 & Sony A7R V\n35mm Fixed Lens focus";
+      content["about_page_address"] = aboutConfig.pageAddress || aboutConfig.address || "São Paulo, Brasil\nDisponível para projetos globais";
+      content["about_page_awards"] = aboutConfig.pageAwards || "• National Geographic Photo of the Year (Finalist 2021)\n• International Photography Awards (Gold - Nature 2022)\n• Exhibition \"Urban Silence\" - Tokyo, Japan";
+    } else {
+      content["about_greeting"] = "Olá, eu sou o Diogo";
+      content["about_title_normal"] = "Um curioso por natureza,";
+      content["about_title_styled"] = "apaixonado por café";
+      content["about_bio"] = "Paulistano de alma, encontro paz em caminhadas matinais e na luz que banha as ruas antes da cidade acordar. Sempre com um livro ou uma câmera por perto, busco a beleza no ordinário e nas histórias que as pessoas esquecem de contar.";
+      content["about_years"] = "10+";
+      content["about_equipment"] = "Leica M11 & Sony A7R V\n35mm Fixed Lens focus";
+      content["about_address"] = "São Paulo, Brasil\nDisponível para projetos globais";
+      content["about_link_text"] = "Minha história completa";
+      content["about_photo_url"] = "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=800";
+
+      content["about_home_greeting"] = "Olá, eu sou o Diogo";
+      content["about_home_title_normal"] = "Um curioso por natureza,";
+      content["about_home_title_styled"] = "apaixonado por café";
+      content["about_home_bio"] = "Paulistano de alma, encontro paz em caminhadas matinais e na luz que banha as ruas antes da cidade acordar. Sempre com um livro ou uma câmera por perto, busco a beleza no ordinário e nas histórias que as pessoas esquecem de contar.";
+      content["about_home_photo_url"] = "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=800";
+      content["about_home_link_text"] = "Minha história completa";
+
+      content["about_page_title"] = "Sobre Diogo Alves";
+      content["about_page_subtitle"] = "A busca pelo invisível.";
+      content["about_page_bio"] = "Minha jornada na fotografia começou nas ruas de São Paulo, capturando a geometria brutalista e a humanidade vibrante da metrópole. Com o tempo, meu olhar se voltou para o silêncio — das paisagens remotas da Islândia à paciência necessária para observar a vida selvagem no Quênia. \n\nAcredito que uma boa fotografia não apenas documenta um momento, mas traduz o sentimento que ele evoca. Meu trabalho é minimalista por escolha, focado na pureza da colagem e na honestidade da luz.";
+      content["about_page_photo_url"] = "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=1000";
+      content["about_page_years"] = "10+";
+      content["about_page_equipment"] = "Leica M11 & Sony A7R V\n35mm Fixed Lens focus";
+      content["about_page_address"] = "São Paulo, Brasil\nDisponível para projetos globais";
+      content["about_page_awards"] = "• National Geographic Photo of the Year (Finalist 2021)\n• International Photography Awards (Gold - Nature 2022)\n• Exhibition \"Urban Silence\" - Tokyo, Japan";
     }
 
     if (contactConfig) {
-      content["contact_title_normal"] = contactConfig.titleNormal || "";
-      content["contact_title_styled"] = contactConfig.titleStyled || "";
-      content["contact_subtitle"] = contactConfig.subtitle || "";
-      content["contact_info_title"] = contactConfig.infoTitle || "";
-      content["contact_info_desc"] = contactConfig.infoDesc || "";
-      content["contact_email"] = contactConfig.email || "";
+      content["contact_title_normal"] = contactConfig.titleNormal || "Vamos";
+      content["contact_title_styled"] = contactConfig.titleStyled || "conversar";
+      content["contact_subtitle"] = contactConfig.subtitle || "Aberto a patrocínios para expedições e projetos autorais";
+      content["contact_info_title"] = contactConfig.infoTitle || "Informações Diretas";
+      content["contact_info_desc"] = contactConfig.infoDesc || "Se você tem interesse em patrocinar uma expedição, adquirir obras originais ou propor um projeto fotográfico, sinta-se à vontade para entrar em contato.";
+      content["contact_email"] = contactConfig.email || "contato@diogoalves.com";
+    } else {
+      content["contact_title_normal"] = "Vamos";
+      content["contact_title_styled"] = "conversar";
+      content["contact_subtitle"] = "Aberto a patrocínios para expedições e projetos autorais";
+      content["contact_info_title"] = "Informações Diretas";
+      content["contact_info_desc"] = "Se você tem interesse em patrocinar uma expedição, adquirir obras originais ou propor um projeto fotográfico, sinta-se à vontade para entrar em contato.";
+      content["contact_email"] = "contato@diogoalves.com";
     }
 
     return content;
@@ -306,9 +470,9 @@ export async function updateSiteContent(formData: FormData) {
   };
 
   const homeMap: Record<string, string> = {
-    "home_title_1": "title1",
-    "home_title_2": "title2",
-    "home_subtitle": "subtitle",
+    "home_hero_title_1": "title1",
+    "home_hero_title_2": "title2",
+    "home_hero_subtitle": "subtitle",
     "home_hero_bg_url": "heroBgUrl",
     "home_hero_main_text": "mainText",
     "home_gallery_title": "galleryTitle",
@@ -324,7 +488,25 @@ export async function updateSiteContent(formData: FormData) {
     "about_equipment": "equipment",
     "about_address": "address",
     "about_link_text": "linkText",
-    "about_photo_url": "photoUrl"
+    "about_photo_url": "photoUrl",
+
+    // Separated Homepage fields
+    "about_home_greeting": "homeGreeting",
+    "about_home_title_normal": "homeTitleNormal",
+    "about_home_title_styled": "homeTitleStyled",
+    "about_home_bio": "homeBio",
+    "about_home_photo_url": "homePhotoUrl",
+    "about_home_link_text": "homeLinkText",
+
+    // Separated Full About Page fields
+    "about_page_title": "pageTitle",
+    "about_page_subtitle": "pageSubtitle",
+    "about_page_bio": "pageBio",
+    "about_page_photo_url": "pagePhotoUrl",
+    "about_page_years": "pageYears",
+    "about_page_equipment": "pageEquipment",
+    "about_page_address": "pageAddress",
+    "about_page_awards": "pageAwards"
   };
 
   const contactMap: Record<string, string> = {
@@ -354,6 +536,34 @@ export async function updateSiteContent(formData: FormData) {
 
   // Update Sections
   const updatePromises = [];
+
+  // Fetch old config to check if any images were updated or cleared
+  try {
+    const [oldHome, oldAbout] = await Promise.all([
+      prisma.homeConfig.findUnique({ where: { id: "default" } }),
+      prisma.aboutConfig.findUnique({ where: { id: "default" } }),
+    ]);
+
+    if (oldHome) {
+      if (homeFields.heroBgUrl !== undefined && oldHome.heroBgUrl && oldHome.heroBgUrl !== homeFields.heroBgUrl) {
+        await deleteFromCloudinary(oldHome.heroBgUrl);
+      }
+    }
+
+    if (oldAbout) {
+      if (aboutFields.photoUrl !== undefined && oldAbout.photoUrl && oldAbout.photoUrl !== aboutFields.photoUrl) {
+        await deleteFromCloudinary(oldAbout.photoUrl);
+      }
+      if (aboutFields.homePhotoUrl !== undefined && oldAbout.homePhotoUrl && oldAbout.homePhotoUrl !== aboutFields.homePhotoUrl) {
+        await deleteFromCloudinary(oldAbout.homePhotoUrl);
+      }
+      if (aboutFields.pagePhotoUrl !== undefined && oldAbout.pagePhotoUrl && oldAbout.pagePhotoUrl !== aboutFields.pagePhotoUrl) {
+        await deleteFromCloudinary(oldAbout.pagePhotoUrl);
+      }
+    }
+  } catch (err) {
+    console.error("Erro ao limpar imagens antigas do Cloudinary:", err);
+  }
 
   if (Object.keys(footerFields).length > 0) {
     updatePromises.push(prisma.footerConfig.upsert({
