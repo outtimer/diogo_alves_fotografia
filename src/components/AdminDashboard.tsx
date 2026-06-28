@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { addPhoto, updatePhoto, deletePhoto, addPost, deletePost, updateSiteContent, uploadImage, addUser, deleteUser, addCategory, deleteCategory } from "@/app/admin/actions";
+import { addPhoto, updatePhoto, deletePhoto, addPost, deletePost, updateSiteContent, uploadImage, addUser, updateUser, deleteUser, addCategory, deleteCategory } from "@/app/admin/actions";
 import { motion, AnimatePresence } from "framer-motion";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { Trash2, Plus, Edit, ImageIcon, FileText, MapPin, Tag, Calendar, AlignLeft, Home, User, Mail, Save, LayoutDashboard, Settings, TrendingUp, Eye, ArrowUpRight, Upload, Loader2, Link as LinkIcon, Users, Shield, ShieldAlert, ShieldCheck, Globe, Search, CheckCircle, AlertCircle, Info, X } from "lucide-react";
@@ -105,6 +105,7 @@ export default function AdminDashboard({
   }, [initialContent["about_page_photo_url"], initialContent["about_photo_url"]]);
 
   const [editingPhoto, setEditingPhoto] = useState<Photo | null>(null);
+  const [editingUser, setEditingUser] = useState<UserData | null>(null);
   const [photoToDelete, setPhotoToDelete] = useState<Photo | null>(null);
   const [isDeletingPhoto, setIsDeletingPhoto] = useState(false);
 
@@ -1670,109 +1671,185 @@ export default function AdminDashboard({
             {/* User Form */}
             <div className="lg:col-span-4">
               <div className="bg-white rounded-3xl border border-zinc-100 p-8 shadow-xl shadow-zinc-200/50 sticky top-32">
-                <h2 className="text-lg font-display italic mb-8 flex items-center text-zinc-950">
-                  <User size={20} className="mr-3 text-zinc-400" /> Novo Usuário
-                </h2>
-                <form 
-                  onSubmit={async (e) => {
-                    e.preventDefault();
-                    const formData = new FormData(e.currentTarget);
-                    try {
-                      await addUser(formData);
-                      showNotification("Usuário criado com sucesso!", "success");
-                      e.currentTarget.reset();
-                      router.refresh();
-                    } catch (error: any) {
-                      showNotification("Erro ao criar usuário: " + (error.message || error), "error");
-                    }
-                  }} 
-                  className="space-y-6"
-                >
-                  <div className="space-y-2">
-                    <label className="block text-[10px] uppercase tracking-widest text-zinc-400 font-bold ml-1">Nome Completo</label>
-                    <input name="name" type="text" required className="w-full bg-zinc-50 border border-zinc-100 rounded-2xl p-4 text-sm focus:outline-none focus:ring-4 focus:ring-zinc-950/5 focus:border-zinc-950/20 transition-all" />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="block text-[10px] uppercase tracking-widest text-zinc-400 font-bold ml-1">E-mail</label>
-                    <input name="email" type="email" required className="w-full bg-zinc-50 border border-zinc-100 rounded-2xl p-4 text-sm focus:outline-none focus:ring-4 focus:ring-zinc-950/5 focus:border-zinc-950/20 transition-all" />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="block text-[10px] uppercase tracking-widest text-zinc-400 font-bold ml-1">Senha</label>
-                    <input name="password" type="password" required className="w-full bg-zinc-50 border border-zinc-100 rounded-2xl p-4 text-sm focus:outline-none focus:ring-4 focus:ring-zinc-950/5 focus:border-zinc-950/20 transition-all" />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="block text-[10px] uppercase tracking-widest text-zinc-400 font-bold ml-1">Cargo / Nível</label>
-                    <select name="role" required className="w-full bg-zinc-50 border border-zinc-100 rounded-2xl p-4 text-sm focus:outline-none focus:ring-4 focus:ring-zinc-950/5 focus:border-zinc-950/20 transition-all appearance-none">
-                      <option value="EDITOR">Editor (Conteúdo)</option>
-                      <option value="ADMIN">Administrador (Total)</option>
-                    </select>
-                  </div>
-                  <button type="submit" className="w-full bg-zinc-950 text-white rounded-2xl py-4 hover:bg-zinc-800 transition-all font-bold flex items-center justify-center">
-                    <Plus size={16} className="mr-3" />
-                    <span className="text-[10px] uppercase tracking-[0.2em]">Criar Usuário</span>
-                  </button>
-                </form>
+                {editingUser ? (
+                  <>
+                    <h2 className="text-lg font-display italic mb-8 flex items-center text-zinc-950">
+                      <Edit size={20} className="mr-3 text-zinc-400" /> Editar Usuário
+                    </h2>
+                    <form 
+                      key={`edit-${editingUser.id}`}
+                      onSubmit={async (e) => {
+                        e.preventDefault();
+                        const formData = new FormData(e.currentTarget);
+                        try {
+                          const result = await updateUser(editingUser.id, formData);
+                          if (result && result.error) {
+                            showNotification(result.error, "error");
+                          } else {
+                            showNotification("Usuário atualizado com sucesso!", "success");
+                            setEditingUser(null);
+                            router.refresh();
+                          }
+                        } catch (error: any) {
+                          showNotification("Erro ao atualizar usuário: " + (error.message || error), "error");
+                        }
+                      }} 
+                      className="space-y-6"
+                    >
+                      <div className="space-y-2">
+                        <label className="block text-[10px] uppercase tracking-widest text-zinc-400 font-bold ml-1">Nome Completo</label>
+                        <input name="name" type="text" required defaultValue={editingUser.name} className="w-full bg-zinc-50 border border-zinc-100 rounded-2xl p-4 text-sm focus:outline-none focus:ring-4 focus:ring-zinc-950/5 focus:border-zinc-950/20 transition-all" />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="block text-[10px] uppercase tracking-widest text-zinc-400 font-bold ml-1">E-mail</label>
+                        <input name="email" type="email" required defaultValue={editingUser.email} className="w-full bg-zinc-50 border border-zinc-100 rounded-2xl p-4 text-sm focus:outline-none focus:ring-4 focus:ring-zinc-950/5 focus:border-zinc-950/20 transition-all" />
+                      </div>
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center ml-1">
+                          <label className="block text-[10px] uppercase tracking-widest text-zinc-400 font-bold">Senha</label>
+                          <span className="text-[9px] text-zinc-400 font-normal">Deixe em branco para manter</span>
+                        </div>
+                        <input name="password" type="password" className="w-full bg-zinc-50 border border-zinc-100 rounded-2xl p-4 text-sm focus:outline-none focus:ring-4 focus:ring-zinc-950/5 focus:border-zinc-950/20 transition-all" placeholder="Nova senha (mín. 6 caracteres)" />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="block text-[10px] uppercase tracking-widest text-zinc-400 font-bold ml-1">Cargo / Nível</label>
+                        <select name="role" required defaultValue={editingUser.role} className="w-full bg-zinc-50 border border-zinc-100 rounded-2xl p-4 text-sm focus:outline-none focus:ring-4 focus:ring-zinc-950/5 focus:border-zinc-950/20 transition-all appearance-none">
+                          <option value="EDITOR">Editor (Conteúdo)</option>
+                          <option value="ADMIN">Administrador (Total)</option>
+                        </select>
+                      </div>
+                      <div className="flex gap-3">
+                        <button type="button" onClick={() => setEditingUser(null)} className="w-1/3 border border-zinc-200 text-zinc-600 rounded-2xl py-4 hover:bg-zinc-50 transition-all font-bold text-center">
+                          <span className="text-[10px] uppercase tracking-[0.2em] text-xs">Cancelar</span>
+                        </button>
+                        <button type="submit" className="w-2/3 bg-zinc-950 text-white rounded-2xl py-4 hover:bg-zinc-800 transition-all font-bold flex items-center justify-center">
+                          <Save size={16} className="mr-3" />
+                          <span className="text-[10px] uppercase tracking-[0.2em]">Salvar</span>
+                        </button>
+                      </div>
+                    </form>
+                  </>
+                ) : (
+                  <>
+                    <h2 className="text-lg font-display italic mb-8 flex items-center text-zinc-950">
+                      <User size={20} className="mr-3 text-zinc-400" /> Novo Usuário
+                    </h2>
+                    <form 
+                      onSubmit={async (e) => {
+                        e.preventDefault();
+                        const formData = new FormData(e.currentTarget);
+                        try {
+                          const result = await addUser(formData);
+                          if (result && result.error) {
+                            showNotification(result.error, "error");
+                          } else {
+                            showNotification("Usuário criado com sucesso!", "success");
+                            e.currentTarget.reset();
+                            router.refresh();
+                          }
+                        } catch (error: any) {
+                          showNotification("Erro ao criar usuário: " + (error.message || error), "error");
+                        }
+                      }} 
+                      className="space-y-6"
+                    >
+                      <div className="space-y-2">
+                        <label className="block text-[10px] uppercase tracking-widest text-zinc-400 font-bold ml-1">Nome Completo</label>
+                        <input name="name" type="text" required className="w-full bg-zinc-50 border border-zinc-100 rounded-2xl p-4 text-sm focus:outline-none focus:ring-4 focus:ring-zinc-950/5 focus:border-zinc-950/20 transition-all" />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="block text-[10px] uppercase tracking-widest text-zinc-400 font-bold ml-1">E-mail</label>
+                        <input name="email" type="email" required className="w-full bg-zinc-50 border border-zinc-100 rounded-2xl p-4 text-sm focus:outline-none focus:ring-4 focus:ring-zinc-950/5 focus:border-zinc-950/20 transition-all" />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="block text-[10px] uppercase tracking-widest text-zinc-400 font-bold ml-1">Senha</label>
+                        <input name="password" type="password" required className="w-full bg-zinc-50 border border-zinc-100 rounded-2xl p-4 text-sm focus:outline-none focus:ring-4 focus:ring-zinc-950/5 focus:border-zinc-950/20 transition-all" placeholder="Mínimo de 6 caracteres" />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="block text-[10px] uppercase tracking-widest text-zinc-400 font-bold ml-1">Cargo / Nível</label>
+                        <select name="role" required className="w-full bg-zinc-50 border border-zinc-100 rounded-2xl p-4 text-sm focus:outline-none focus:ring-4 focus:ring-zinc-950/5 focus:border-zinc-950/20 transition-all appearance-none">
+                          <option value="EDITOR">Editor (Conteúdo)</option>
+                          <option value="ADMIN">Administrador (Total)</option>
+                        </select>
+                      </div>
+                      <button type="submit" className="w-full bg-zinc-950 text-white rounded-2xl py-4 hover:bg-zinc-800 transition-all font-bold flex items-center justify-center">
+                        <Plus size={16} className="mr-3" />
+                        <span className="text-[10px] uppercase tracking-[0.2em]">Criar Usuário</span>
+                      </button>
+                    </form>
+                  </>
+                )}
               </div>
             </div>
-
-            {/* Users List */}
-            <div className="lg:col-span-8">
-              <div className="bg-white rounded-3xl border border-zinc-100 shadow-xl shadow-zinc-200/50 overflow-hidden">
-                <div className="px-8 py-6 bg-zinc-50/50 border-b border-zinc-100 flex justify-between items-center">
-                  <span className="text-[10px] uppercase tracking-widest text-zinc-400 font-bold">Equipe Aura</span>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left">
-                    <tbody className="divide-y divide-zinc-50">
-                      {users.map((user) => (
-                        <tr key={user.id} className="hover:bg-zinc-50/30 transition-colors group">
-                          <td className="p-6">
-                            <div className="flex items-center gap-4">
-                              <div className={`w-10 h-10 rounded-full flex items-center justify-center font-display italic text-lg ${user.role === "ADMIN" ? "bg-zinc-950 text-white" : "bg-zinc-100 text-zinc-400"}`}>
-                                {user.name.charAt(0)}
-                              </div>
-                              <div>
-                                <h3 className="text-sm font-bold text-zinc-950">{user.name}</h3>
-                                <p className="text-[10px] text-zinc-400 lowercase tracking-wider">{user.email}</p>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="p-6">
-                            <span className={`inline-flex items-center px-3 py-1 rounded-full text-[8px] uppercase tracking-widest font-bold ${user.role === "ADMIN" ? "bg-zinc-950 text-white" : "bg-zinc-100 text-zinc-500"}`}>
-                              {user.role === "ADMIN" ? (
-                                <><Shield size={10} className="mr-2" /> Admin</>
-                              ) : (
-                                <><ShieldCheck size={10} className="mr-2" /> Editor</>
-                              )}
-                            </span>
-                          </td>
-                          <td className="p-6 text-right">
-                            {user.id !== currentUser.id && (
-                              <button 
-                                onClick={async () => {
-                                  if (confirm("Remover este usuário?")) {
-                                    try {
-                                      await deleteUser(user.id);
-                                      showNotification("Usuário removido com sucesso!", "success");
-                                      router.refresh();
-                                    } catch (err: any) {
-                                      showNotification("Erro ao remover usuário: " + (err.message || err), "error");
-                                    }
-                                  }
-                                }}
-                                className="w-10 h-10 rounded-xl flex items-center justify-center text-zinc-200 hover:text-red-500 transition-all"
-                              >
-                                <Trash2 size={18} />
-                              </button>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
+ 
+             {/* Users List */}
+             <div className="lg:col-span-8">
+               <div className="bg-white rounded-3xl border border-zinc-100 shadow-xl shadow-zinc-200/50 overflow-hidden">
+                 <div className="px-8 py-6 bg-zinc-50/50 border-b border-zinc-100 flex justify-between items-center">
+                   <span className="text-[10px] uppercase tracking-widest text-zinc-400 font-bold">Equipe Aura</span>
+                 </div>
+                 <div className="overflow-x-auto">
+                   <table className="w-full text-left">
+                     <tbody className="divide-y divide-zinc-50">
+                       {users.map((user) => (
+                         <tr key={user.id} className="hover:bg-zinc-50/30 transition-colors group">
+                           <td className="p-6">
+                             <div className="flex items-center gap-4">
+                               <div className={`w-10 h-10 rounded-full flex items-center justify-center font-display italic text-lg ${user.role === "ADMIN" ? "bg-zinc-950 text-white" : "bg-zinc-100 text-zinc-400"}`}>
+                                 {user.name.charAt(0)}
+                               </div>
+                               <div>
+                                 <h3 className="text-sm font-bold text-zinc-950">{user.name}</h3>
+                                 <p className="text-[10px] text-zinc-400 lowercase tracking-wider">{user.email}</p>
+                               </div>
+                             </div>
+                           </td>
+                           <td className="p-6">
+                             <span className={`inline-flex items-center px-3 py-1 rounded-full text-[8px] uppercase tracking-widest font-bold ${user.role === "ADMIN" ? "bg-zinc-950 text-white" : "bg-zinc-100 text-zinc-500"}`}>
+                               {user.role === "ADMIN" ? (
+                                 <><Shield size={10} className="mr-2" /> Admin</>
+                               ) : (
+                                 <><ShieldCheck size={10} className="mr-2" /> Editor</>
+                               )}
+                             </span>
+                           </td>
+                           <td className="p-6 text-right">
+                             <div className="flex justify-end items-center gap-2">
+                               <button 
+                                 onClick={() => setEditingUser(user)}
+                                 className="w-10 h-10 rounded-xl flex items-center justify-center text-zinc-400 hover:text-zinc-950 hover:bg-zinc-100 transition-all"
+                                 title="Editar usuário"
+                               >
+                                 <Edit size={18} />
+                               </button>
+                               {user.id !== currentUser.id && (
+                                 <button 
+                                   onClick={async () => {
+                                     if (confirm("Remover este usuário?")) {
+                                       try {
+                                         await deleteUser(user.id);
+                                         showNotification("Usuário removido com sucesso!", "success");
+                                         router.refresh();
+                                       } catch (err: any) {
+                                         showNotification("Erro ao remover usuário: " + (err.message || err), "error");
+                                       }
+                                     }
+                                   }}
+                                   className="w-10 h-10 rounded-xl flex items-center justify-center text-zinc-400 hover:text-red-500 hover:bg-zinc-100 transition-all"
+                                   title="Excluir usuário"
+                                 >
+                                   <Trash2 size={18} />
+                                 </button>
+                               )}
+                             </div>
+                           </td>
+                         </tr>
+                       ))}
+                     </tbody>
+                   </table>
+                 </div>
+               </div>
+             </div>
           </motion.div>
         )}
       </AnimatePresence>

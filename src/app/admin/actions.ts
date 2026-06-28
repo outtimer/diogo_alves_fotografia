@@ -699,23 +699,137 @@ export async function getUsers() {
   });
 }
 
-export async function addUser(formData: FormData) {
-  if (!(await isAdmin())) throw new Error("Acesso restrito");
+function validateUserData(name: string, email: string, password?: string, role?: string) {
+  if (!name || name.trim().length < 3) {
+    return "O nome deve ter pelo menos 3 caracteres.";
+  }
   
-  const name = formData.get("name") as string;
-  const email = formData.get("email") as string;
-  const password = formData.get("password") as string;
-  const role = formData.get("role") as string;
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!email || !emailRegex.test(email.trim())) {
+    return "O endereço de e-mail fornecido não é válido.";
+  }
+  
+  if (password !== undefined) {
+    if (!password || password.length < 6) {
+      return "A senha deve conter pelo menos 6 caracteres.";
+    }
+  }
+  
+  if (role !== undefined && role !== "ADMIN" && role !== "EDITOR") {
+    return "O cargo/nível selecionado é inválido. Escolha 'ADMIN' ou 'EDITOR'.";
+  }
+  
+  return null;
+}
 
-  if (!name || !email || !password) throw new Error("Campos obrigatórios faltando");
+export async function addUser(formData: FormData) {
+  try {
+    if (!(await isAdmin())) {
+      return { error: "Acesso restrito. Você precisa ser um administrador para criar usuários." };
+    }
+    
+    const name = formData.get("name") as string;
+    const email = formData.get("email") as string;
+    const password = formData.get("password") as string;
+    const role = formData.get("role") as string;
 
-  const hashedPassword = await bcrypt.hash(password, 10);
+    if (!name || !email || !password) {
+      return { error: "Campos obrigatórios faltando. Preencha nome, e-mail e senha." };
+    }
 
-  await prisma.user.create({
-    data: { name, email, password: hashedPassword, role }
-  });
+    const validationError = validateUserData(name, email, password, role);
+    if (validationError) {
+      return { error: validationError };
+    }
 
-  revalidatePath("/admin");
+    // Verificar se o e-mail já está em uso
+    const existingUser = await prisma.user.findUnique({
+      where: { email: email.toLowerCase().trim() }
+    });
+
+    if (existingUser) {
+      return { error: "Este e-mail já está cadastrado para outro usuário." };
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    await prisma.user.create({
+      data: { 
+        name, 
+        email: email.toLowerCase().trim(), 
+        password: hashedPassword, 
+        role 
+      }
+    });
+
+    revalidatePath("/admin");
+    return { success: true };
+  } catch (error: any) {
+    console.error("Erro ao criar usuário:", error);
+    return { error: error.message || "Erro desconhecido ao cadastrar usuário." };
+  }
+}
+
+export async function updateUser(id: string, formData: FormData) {
+  try {
+    if (!(await isAdmin())) {
+      return { error: "Acesso restrito. Você precisa ser um administrador para editar usuários." };
+    }
+
+    const name = formData.get("name") as string;
+    const email = formData.get("email") as string;
+    const password = formData.get("password") as string;
+    const role = formData.get("role") as string;
+
+    if (!name || !email) {
+      return { error: "Campos obrigatórios faltando. Nome e e-mail são obrigatórios." };
+    }
+
+    const validationError = validateUserData(
+      name, 
+      email, 
+      password ? password : undefined, 
+      role
+    );
+    
+    if (validationError) {
+      return { error: validationError };
+    }
+
+    // Verificar se o e-mail já está em uso por outro usuário
+    const existingUser = await prisma.user.findFirst({
+      where: { 
+        email: email.toLowerCase().trim(),
+        id: { not: id }
+      }
+    });
+
+    if (existingUser) {
+      return { error: "Este e-mail já está cadastrado para outro usuário." };
+    }
+
+    const updateData: any = {
+      name,
+      email: email.toLowerCase().trim(),
+      role
+    };
+
+    if (password && password.trim() !== "") {
+      const hashedPassword = await bcrypt.hash(password, 10);
+      updateData.password = hashedPassword;
+    }
+
+    await prisma.user.update({
+      where: { id },
+      data: updateData
+    });
+
+    revalidatePath("/admin");
+    return { success: true };
+  } catch (error: any) {
+    console.error("Erro ao atualizar usuário:", error);
+    return { error: error.message || "Erro desconhecido ao atualizar usuário." };
+  }
 }
 
 export async function deleteUser(id: string) {
