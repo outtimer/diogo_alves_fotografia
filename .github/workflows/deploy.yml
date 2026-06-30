@@ -22,9 +22,9 @@ jobs:
       - name: Deploy
         run: |
           ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOF'
-            cd ~/apps/meu-projeto
+            cd ~/apps/diogo_alves_fotografia
             git pull origin main
             npm install --production
-            pm2 reload meu-projeto || pm2 start app.js --name meu-projeto
+            pm2 reload diogo_alves_fotografia || pm2 start app.js --name diogo_alves_fotografia
             pm2 save
           EOF
