@@ -9,3 +9,4 @@ coverage/
 *.db
 *.db-journal
 /prisma/dev.db
+.next
