@@ -8,7 +8,7 @@ RED='\033[0;31m'
 NC='\033[0m' # Sem Cor
 
 echo -e "${BLUE}===============================================${NC}"
-echo -e "${BLUE}      Script de Deploy - Aura Portfolio        ${NC}"
+echo -e "${BLUE}    Script de Deploy - Diogo Alves Fotografia   ${NC}"
 echo -e "${BLUE}===============================================${NC}"
 
 # Detecta se é o ambiente local de desenvolvimento ou o servidor, ou se foi solicitado modo automático
@@ -51,10 +51,13 @@ if [ "$OPTION" = "1" ]; then
 
 elif [ "$OPTION" = "2" ]; then
     echo -e "\n${BLUE}📥 [1/5] Atualizando código fonte do repositório...${NC}"
+    # Se houver conflito local com o deploy.sh antes de fazer pull, removemos ou resetamos ele
+    git checkout -- deploy.sh 2>/dev/null || true
     git pull origin main
     
-    echo -e "\n${BLUE}📦 [2/5] Instalando dependências (produção)...${NC}"
-    npm install --omit=dev
+    echo -e "\n${BLUE}📦 [2/5] Instalando todas as dependências necessárias para a compilação (Build)...${NC}"
+    # IMPORTANTE: precisamos de devDependencies (como typescript e ts-node) para compilar e migrar o banco!
+    npm install
     
     echo -e "\n${BLUE}🔄 [3/5] Gerando cliente Prisma e aplicando schemas no banco (Turso)...${NC}"
     npx prisma generate
@@ -63,9 +66,14 @@ elif [ "$OPTION" = "2" ]; then
     echo -e "\n${BLUE}🏗️ [4/5] Gerando nova compilação da aplicação (Build)...${NC}"
     npm run build
     
+    # Após a compilação (Build) concluída com sucesso, podemos remover as devDependencies para economizar RAM no Pi
+    echo -e "\n${BLUE}🧹 Removendo dependências de desenvolvimento para economizar espaço e RAM...${NC}"
+    npm prune --omit=dev
+    
     echo -e "\n${BLUE}🚀 [5/5] Reiniciando servidor no PM2...${NC}"
     if command -v pm2 &> /dev/null; then
-        pm2 restart "aura-portfolio" || pm2 start npm --name "aura-portfolio" -- start
+        # Reinicia o processo correto "diogo_alves_fotografia"
+        pm2 restart "diogo_alves_fotografia" || pm2 restart "diogo-alves-fotografia" || pm2 start npm --name "diogo_alves_fotografia" -- start
         pm2 save
         echo -e "\n${GREEN}✅ PM2 reiniciado com sucesso!${NC}"
     else
@@ -73,7 +81,7 @@ elif [ "$OPTION" = "2" ]; then
         echo -e "${YELLOW}Para rodar manualmente, execute: npm run start${NC}"
     fi
     
-    echo -e "\n${GREEN}🎉 Deploy local concluído com sucesso! Aura Portfolio está online.${NC}"
+    echo -e "\n${GREEN}🎉 Deploy local concluído com sucesso! Diogo Alves Fotografia está online.${NC}"
 else
     echo -e "\n${RED}❌ Opção inválida. Operação cancelada.${NC}"
 fi
