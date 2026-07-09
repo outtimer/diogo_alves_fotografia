@@ -11,8 +11,11 @@ echo -e "${BLUE}===============================================${NC}"
 echo -e "${BLUE}      Script de Deploy - Aura Portfolio        ${NC}"
 echo -e "${BLUE}===============================================${NC}"
 
-# Detecta se é o ambiente local de desenvolvimento ou o servidor
-if [ -d ".git" ]; then
+# Detecta se é o ambiente local de desenvolvimento ou o servidor, ou se foi solicitado modo automático
+OPTION=""
+if [ "$1" = "--auto" ] || [ "$1" = "-y" ] || [ "$GITHUB_ACTIONS" = "true" ]; then
+    OPTION=2
+elif [ -d ".git" ]; then
     echo -e "Como você deseja utilizar este script?"
     echo -e "1) ${GREEN}Enviar alterações para o GitHub (Commit & Push)${NC}"
     echo -e "2) ${YELLOW}Executar deploy local no servidor (Pull, Build & PM2)${NC}"
