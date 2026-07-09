@@ -1,30 +1,38 @@
-name: Deploy Continuo para o Raspberry Pi
+name: Deploy no Raspberry Pi
 
 on:
   push:
     branches:
-      - main # Executa sempre que subir código para a branch main
+      - main
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout do código
-        uses: actions/checkout@v4
-
-      - name: Executar Deploy via SSH no Raspberry Pi
+      - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USERNAME }}
+          username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
           port: ${{ secrets.SSH_PORT }}
           script: |
+            # Encontra e entra no diretório correto do projeto no Raspberry Pi
+            if [ -d "$HOME/apps/aura-portfolio" ]; then
+              cd "$HOME/apps/aura-portfolio"
+            elif [ -d "$HOME/apps/meu-portfolio" ]; then
+              cd "$HOME/apps/meu-portfolio"
+            elif [ -d "$HOME/apps/diogo_alves_fotografia" ]; then
+              cd "$HOME/apps/diogo_alves_fotografia"
+            else
+              echo "❌ Diretório do projeto não encontrado no Raspberry Pi!"
+              echo "Procurados: ~/apps/aura-portfolio, ~/apps/meu-portfolio, ~/apps/diogo_alves_fotografia"
+              exit 1
+            fi
+
             export NVM_DIR="$HOME/.nvm"
             [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" # Carrega o NVM se usar, ou garante acesso aos binários do Node no path do Pi
-            
-            cd ~/apps/meu-portfolio
             
             echo "📥 Atualizando código fonte..."
             git pull origin main
@@ -40,6 +48,6 @@ jobs:
             npm run build
             
             echo "🚀 Reiniciando servidor no PM2..."
-            pm2 restart "aura-portfolio"
+            pm2 restart "diogo_alves_fotografia"
             
             echo "✅ Deploy finalizado com sucesso!"
