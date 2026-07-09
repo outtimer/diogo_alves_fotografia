@@ -19,15 +19,15 @@ jobs:
           port: ${{ secrets.SSH_PORT }}
           script: |
             # Encontra e entra no diretório correto do projeto no Raspberry Pi
-            if [ -d "$HOME/apps/aura-portfolio" ]; then
-              cd "$HOME/apps/aura-portfolio"
-            elif [ -d "$HOME/apps/meu-portfolio" ]; then
-              cd "$HOME/apps/meu-portfolio"
+            if [ -d "$HOME/apps/diogo_alves_fotografia" ]; then
+              cd "$HOME/apps/diogo_alves_fotografia"
+            elif [ -d "$HOME/apps/diogo_alves_fotografia" ]; then
+              cd "$HOME/apps/diogo_alves_fotografia"
             elif [ -d "$HOME/apps/diogo_alves_fotografia" ]; then
               cd "$HOME/apps/diogo_alves_fotografia"
             else
               echo "❌ Diretório do projeto não encontrado no Raspberry Pi!"
-              echo "Procurados: ~/apps/aura-portfolio, ~/apps/meu-portfolio, ~/apps/diogo_alves_fotografia"
+              echo "Procurados: ~/apps/diogo_alves_fotografia, ~/apps/diogo_alves_fotografia, ~/apps/diogo_alves_fotografia"
               exit 1
             fi
 
