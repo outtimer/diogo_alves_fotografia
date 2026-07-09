@@ -122,6 +122,7 @@ export default function FeaturedGrid({ photos, title }: FeaturedGridProps) {
               onClick={(e) => e.stopPropagation()}
             >
               <div className="relative group pointer-events-auto w-full flex flex-col items-center">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img 
                   src={selectedPhoto.url} 
                   alt={selectedPhoto.title}

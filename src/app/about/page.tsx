@@ -1,6 +1,7 @@
 import { Camera, MapPin, Award } from "lucide-react";
 import Logo from "@/components/Logo";
 import { getSiteContent } from "../admin/actions";
+import Image from "next/image";
 
 export default async function AboutPage() {
   const content = await getSiteContent();
@@ -26,11 +27,13 @@ export default async function AboutPage() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-16 lg:gap-24 3xl:gap-32 items-start">
           <div className="relative group">
-             <div className="aspect-[3/4] bg-zinc-100 overflow-hidden border border-zinc-100 shadow-2xl">
-                <img 
+             <div className="aspect-[3/4] bg-zinc-100 overflow-hidden border border-zinc-100 shadow-2xl relative">
+                <Image 
                   src={content["about_page_photo_url"] || content["about_photo_url"] || "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=1000"} 
                   alt="Diogo Alves" 
-                  className="w-full h-full object-cover grayscale opacity-90 group-hover:grayscale-0 transition-all duration-700"
+                  fill
+                  className="object-cover grayscale opacity-90 group-hover:grayscale-0 transition-all duration-700"
+                  referrerPolicy="no-referrer"
                 />
              </div>
              <div className="absolute -bottom-6 -right-6 md:-right-12 bg-white p-8 3xl:p-12 border border-zinc-100 shadow-lg hidden md:block">

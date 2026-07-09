@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { MapPin, X, ArrowRight, ChevronLeft, ChevronRight } from "lucide-react";
+import Image from "next/image";
 import { incrementView } from "@/app/admin/actions";
 
 interface Photo {
@@ -195,12 +196,12 @@ export default function PortfolioGallery({
               className="group relative aspect-[4/5] bg-zinc-100 overflow-hidden cursor-pointer border border-zinc-100"
               onClick={() => handleSelectPhoto(photo)}
             >
-              <img 
+              <Image 
                 src={photo.url} 
                 alt={photo.title}
-                className="absolute inset-0 w-full h-full object-cover grayscale-[30%] group-hover:grayscale-0 transition-all duration-700 group-hover:scale-105"
+                fill
+                className="object-cover grayscale-[30%] group-hover:grayscale-0 transition-all duration-700 group-hover:scale-105"
                 referrerPolicy="no-referrer"
-                loading="lazy"
               />
               <div className="absolute inset-0 bg-white/0 group-hover:bg-white/5 transition-colors duration-500 z-10"></div>
               
@@ -320,6 +321,7 @@ export default function PortfolioGallery({
               onClick={(e) => e.stopPropagation()}
             >
               <div className="relative group pointer-events-auto w-full flex flex-col items-center">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img 
                   src={selectedPhoto.url} 
                   alt={selectedPhoto.title}

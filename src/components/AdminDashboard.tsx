@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 "use client";
 
 import { useState, useEffect } from "react";
@@ -92,17 +93,22 @@ export default function AdminDashboard({
     setMounted(true);
   }, []);
 
-  useEffect(() => {
-    setUploadedHomeBgUrl(initialContent["home_hero_bg_url"] || "");
-  }, [initialContent["home_hero_bg_url"]]);
+  const homeHeroBgUrl = initialContent["home_hero_bg_url"];
+  const aboutHomePhotoUrl = initialContent["about_home_photo_url"];
+  const aboutPhotoUrl = initialContent["about_photo_url"];
+  const aboutPagePhotoUrl = initialContent["about_page_photo_url"];
 
   useEffect(() => {
-    setUploadedAboutHomePhotoUrl(initialContent["about_home_photo_url"] !== undefined ? initialContent["about_home_photo_url"] : (initialContent["about_photo_url"] || ""));
-  }, [initialContent["about_home_photo_url"], initialContent["about_photo_url"]]);
+    setUploadedHomeBgUrl(homeHeroBgUrl || "");
+  }, [homeHeroBgUrl]);
 
   useEffect(() => {
-    setUploadedAboutPagePhotoUrl(initialContent["about_page_photo_url"] !== undefined ? initialContent["about_page_photo_url"] : (initialContent["about_photo_url"] || ""));
-  }, [initialContent["about_page_photo_url"], initialContent["about_photo_url"]]);
+    setUploadedAboutHomePhotoUrl(aboutHomePhotoUrl !== undefined ? aboutHomePhotoUrl : (aboutPhotoUrl || ""));
+  }, [aboutHomePhotoUrl, aboutPhotoUrl]);
+
+  useEffect(() => {
+    setUploadedAboutPagePhotoUrl(aboutPagePhotoUrl !== undefined ? aboutPagePhotoUrl : (aboutPhotoUrl || ""));
+  }, [aboutPagePhotoUrl, aboutPhotoUrl]);
 
   const [editingPhoto, setEditingPhoto] = useState<Photo | null>(null);
   const [editingUser, setEditingUser] = useState<UserData | null>(null);
