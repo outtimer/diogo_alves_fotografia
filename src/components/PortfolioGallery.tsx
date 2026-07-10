@@ -160,7 +160,7 @@ export default function PortfolioGallery({
 
   return (
     <>
-      <div className="flex flex-wrap justify-center gap-8 mb-20 px-4">
+      <div className="flex flex-wrap justify-center gap-3 md:gap-8 mb-10 md:mb-20 px-4">
         {categories.map((cat) => (
           <button
             key={cat}
@@ -182,9 +182,9 @@ export default function PortfolioGallery({
 
       <motion.div 
         layout
-        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 3xl:grid-cols-6 gap-8 md:gap-12 3xl:gap-16"
+        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 3xl:grid-cols-6 gap-6 md:gap-12 3xl:gap-16"
       >
-        <AnimatePresence mode="popLayout">
+        <AnimatePresence mode="wait">
           {paginatedPhotos.map((photo) => (
             <motion.div
               key={photo.id}
@@ -192,7 +192,7 @@ export default function PortfolioGallery({
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.9 }}
-              transition={{ duration: 0.5 }}
+              transition={{ duration: 0.4 }}
               className="group relative aspect-[4/5] bg-zinc-100 overflow-hidden cursor-pointer border border-zinc-100"
               onClick={() => handleSelectPhoto(photo)}
             >
@@ -227,7 +227,7 @@ export default function PortfolioGallery({
 
       {/* Pagination Controls */}
       {totalPages > 1 && (
-        <div className="flex flex-col sm:flex-row items-center justify-between mt-20 pt-8 border-t border-zinc-100 gap-6">
+        <div className="flex flex-col sm:flex-row items-center justify-between mt-10 md:mt-20 pt-8 border-t border-zinc-100 gap-6">
           <button
             onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
             disabled={currentPage === 1}

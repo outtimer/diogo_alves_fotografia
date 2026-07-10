@@ -1,24 +1,26 @@
 import { Mail, Instagram, Twitter, MapPin, Send } from "lucide-react";
 import Logo from "@/components/Logo";
 import { getSiteContent } from "../admin/actions";
+import Footer from "@/components/Footer";
 
 export default async function ContactPage() {
   const content = await getSiteContent();
 
   return (
-    <div className="min-h-screen bg-[#fbfbf8] text-zinc-600 font-sans selection:bg-zinc-900 selection:text-white pt-32 pb-24 px-6 lg:pt-48 lg:pb-32 3xl:pt-64 3xl:pb-48 flex flex-col justify-center">
-      <div className="max-w-5xl 2xl:max-w-7xl 3xl:max-w-[2000px] mx-auto w-full">
-        <header className="mb-20 3xl:mb-40 text-center">
-          <div className="inline-block mb-8 3xl:mb-16">
-            <Logo className="w-12 h-12 lg:w-16 lg:h-16 3xl:w-24 3xl:h-24 text-zinc-950 mx-auto" />
-          </div>
-          <h1 className="font-display text-5xl md:text-8xl lg:text-9xl 3xl:text-[12rem] text-zinc-950 italic leading-none tracking-tighter text-balance">
-            {content["contact_title_normal"] || "Vamos"} <span className="text-zinc-300">{content["contact_title_styled"] || "conversar"}</span>.
-          </h1>
-          <p className="text-[10px] 3xl:text-base uppercase tracking-[0.4em] mt-6 3xl:mt-12 opacity-40 font-medium text-balance">
-            {content["contact_subtitle"] || "Aberto a patrocínios para expedições e projetos autorais"}
-          </p>
-        </header>
+    <div className="min-h-screen bg-[#fbfbf8] text-zinc-600 font-sans selection:bg-zinc-900 selection:text-white flex flex-col justify-between">
+      <div className="pt-24 pb-12 px-4 md:pt-32 md:pb-24 md:px-6 lg:pt-48 lg:pb-32 3xl:pt-64 3xl:pb-48 flex-1 flex flex-col justify-center">
+        <div className="max-w-5xl 2xl:max-w-7xl 3xl:max-w-[2000px] mx-auto w-full">
+          <header className="mb-10 md:mb-20 3xl:mb-40 text-center">
+            <div className="inline-block mb-6 md:mb-8 3xl:mb-16">
+              <Logo className="w-12 h-12 lg:w-16 lg:h-16 3xl:w-24 3xl:h-24 text-zinc-950 mx-auto" />
+            </div>
+            <h1 className="font-display text-4xl sm:text-5xl md:text-8xl lg:text-9xl 3xl:text-[12rem] text-zinc-950 italic leading-none tracking-tighter text-balance">
+              {content["contact_title_normal"] || "Vamos"} <span className="text-zinc-300">{content["contact_title_styled"] || "conversar"}</span>.
+            </h1>
+            <p className="text-[10px] 3xl:text-base uppercase tracking-[0.4em] mt-4 md:mt-6 3xl:mt-12 opacity-40 font-medium text-balance">
+              {content["contact_subtitle"] || "Aberto a patrocínios para expedições e projetos autorais"}
+            </p>
+          </header>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-24 3xl:gap-32 items-stretch">
           {/* Informações de Contato */}
@@ -132,6 +134,8 @@ export default async function ContactPage() {
           </div>
         </div>
       </div>
+      </div>
+      <Footer content={content} />
     </div>
   );
 }

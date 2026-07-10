@@ -2,6 +2,7 @@ import { Camera, MapPin, Award } from "lucide-react";
 import Logo from "@/components/Logo";
 import { getSiteContent } from "../admin/actions";
 import Image from "next/image";
+import Footer from "@/components/Footer";
 
 export default async function AboutPage() {
   const content = await getSiteContent();
@@ -13,8 +14,9 @@ export default async function AboutPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#fbfbf8] text-zinc-600 font-sans selection:bg-zinc-900 selection:text-white pt-32 pb-24 px-6 lg:pt-48 lg:pb-32 3xl:pt-64 3xl:pb-48">
-      <div className="max-w-5xl 2xl:max-w-7xl 3xl:max-w-[1800px] mx-auto">
+    <div className="min-h-screen bg-[#fbfbf8] text-zinc-600 font-sans selection:bg-zinc-900 selection:text-white flex flex-col justify-between">
+      <div className="pt-24 pb-12 px-4 md:pt-32 md:pb-24 md:px-6 lg:pt-48 lg:pb-32 3xl:pt-64 3xl:pb-48">
+        <div className="max-w-5xl 2xl:max-w-7xl 3xl:max-w-[1800px] mx-auto">
         <header className="mb-20 3xl:mb-32">
           <div className="inline-block mb-8 3xl:mb-16">
             <Logo className="w-12 h-12 lg:w-16 lg:h-16 3xl:w-24 3xl:h-24 text-zinc-950" />
@@ -91,6 +93,8 @@ export default async function AboutPage() {
           </div>
         </div>
       </div>
+      </div>
+      <Footer content={content} />
     </div>
   );
 }

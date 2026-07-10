@@ -37,8 +37,9 @@ export default function Hero({ content }: HeroProps) {
         >
            <h1 className="font-display text-5xl md:text-8xl lg:text-9xl 3xl:text-[12rem] text-zinc-950 italic tracking-tighter flex flex-col md:flex-row items-center justify-center gap-6">
              <Logo className="w-16 h-16 md:w-24 md:h-24 3xl:w-32 3xl:h-32 text-zinc-950" />
-             <span className="flex items-center">
-               {content["home_hero_title_1"] || "Diogo"} <span className="text-zinc-400 ml-4">{content["home_hero_title_2"] || "Alves"}</span>
+             <span className="flex flex-col md:flex-row items-center gap-2 md:gap-4">
+               <span>{content["home_hero_title_1"] || "Diogo"}</span>
+               <span className="text-zinc-400">{content["home_hero_title_2"] || "Alves"}</span>
              </span>
            </h1>
            <motion.div 
